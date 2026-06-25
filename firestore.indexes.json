@@ -1,0 +1,79 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "year",  "order": "DESCENDING" },
+        { "fieldPath": "month", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "villaId", "order": "ASCENDING" },
+        { "fieldPath": "year",    "order": "DESCENDING" },
+        { "fieldPath": "month",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPaid", "order": "ASCENDING" },
+        { "fieldPath": "year",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "villaId", "order": "ASCENDING" },
+        { "fieldPath": "year",    "order": "ASCENDING" },
+        { "fieldPath": "isPaid",  "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "serviceRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientPhone", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "serviceRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "annualSettlements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "villaId", "order": "ASCENDING" },
+        { "fieldPath": "year",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "annualSettlements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "villaId", "order": "ASCENDING" },
+        { "fieldPath": "year",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "annualSettlements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "year",      "order": "DESCENDING" },
+        { "fieldPath": "villaId",   "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "766707217406",
+    "project_id": "gannaty-f16cc",
+    "storage_bucket": "gannaty-f16cc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:766707217406:android:d9f5e6f91e3ae12abe06af",
+        "android_client_info": {
+          "package_name": "com.gannaty.admin_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAd_jQb1fjfUImqoEClDnhKbJB6F24HsD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:766707217406:android:a73464033bda7fd6be06af",
+        "android_client_info": {
+          "package_name": "com.gannaty.client_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAd_jQb1fjfUImqoEClDnhKbJB6F24HsD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

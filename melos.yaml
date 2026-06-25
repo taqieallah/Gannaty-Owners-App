@@ -1,0 +1,17 @@
+name: compound_workspace
+
+packages:
+  - packages/**
+  - apps/**
+
+command:
+  bootstrap:
+    runPubGetInParallel: true
+
+scripts:
+  analyze:
+    run: melos exec -- dart analyze
+    description: Analyze all packages
+  test:
+    run: melos exec -- flutter test
+    description: Run tests in all packages

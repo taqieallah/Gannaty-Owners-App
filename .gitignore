@@ -1,0 +1,61 @@
+# ── Flutter / Dart ──────────────────────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/build/
+.fvm/
+
+# Per-platform generated / ephemeral
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Pods/
+**/ios/.symlinks/
+**/macos/Flutter/ephemeral/
+**/macos/Pods/
+**/linux/flutter/ephemeral/
+**/windows/flutter/ephemeral/
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/key.properties
+**/android/app/release/
+*.iml
+.idea/
+.vscode/
+
+# ── Node (Firebase functions) ───────────────────────────────────────────────
+**/node_modules/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+
+# ── Secrets / signing (never commit) ────────────────────────────────────────
+*.keystore
+*.jks
+**/serviceAccountKey*.json
+**/*-adminsdk-*.json
+.env
+.env.*
+
+# ── Logs / crash dumps / scratch ────────────────────────────────────────────
+*.log
+*.hprof
+java_pid*.hprof
+*.mdmp
+hs_err_pid*.log
+hs_err_pid*.mdmp
+replay_pid*.log
+flutter_*.png
+flutter_*.log
+emulator_reference.png
+
+# ── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

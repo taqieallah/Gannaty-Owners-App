@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Email auth (admin app login) OR anonymous auth (ERP service on desktop).
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email != null ||
+        request.auth.token.firebase.sign_in_provider == 'anonymous'
+      );
+    }
+
+    // Phone-number auth = client mobile app user.
+    function isClient() {
+      return request.auth != null && request.auth.token.phone_number != null;
+    }
+
+    function myPhone() {
+      return request.auth.token.phone_number;
+    }
+
+    // ── Compound config (workspace UID for client path resolution) ────────
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // ── Owner accounts (حسابات الملاك) ────────────────────────────────────
+    // Stored under users/{workspaceUid}/owners — any authenticated user can read.
+    // Only admins can write.
+    match /users/{workspaceUid}/owners/{ownerId} {
+      allow read: if request.auth != null;
+      allow write, delete: if isAdmin();
+    }
+
+    match /users/{workspaceUid}/owner_transactions/{txId} {
+      allow read: if request.auth != null;
+      allow write, delete: if isAdmin();
+    }
+
+    match /users/{workspaceUid}/owner_year_settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write, delete: if isAdmin();
+    }
+
+    // ── Existing compound collections ─────────────────────────────────────
+    match /villas/{villaId} {
+      allow read: if request.auth != null;
+      allow write, delete: if isAdmin();
+      allow update: if isClient() &&
+        resource.data.phoneNumber == myPhone();
+    }
+
+    match /payments/{paymentId} {
+      allow read, write: if isAdmin();
+      allow read: if isClient() &&
+        get(/databases/$(database)/documents/villas/$(resource.data.villaId)).data.phoneNumber == myPhone();
+    }
+
+    match /serviceRequests/{requestId} {
+      allow read, write: if isAdmin();
+      allow create: if isClient() &&
+        request.resource.data.clientPhone == myPhone();
+      allow read: if isClient() &&
+        resource.data.clientPhone == myPhone();
+    }
+
+    match /serviceRequests/{requestId} {
+      allow create: if request.auth != null &&
+        request.resource.data.clientPhone != null;
+      allow read, update: if request.auth != null;
+      allow delete: if isAdmin();
+    }
+
+    match /fcmTokens/{uid} {
+      allow read, write: if isAdmin();
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /annualSettings/{year} {
+      allow read, write: if isAdmin();
+      allow read: if isClient();
+    }
+
+    match /annualSettlements/{settlementId} {
+      allow read, write: if isAdmin();
+      allow read: if isClient() &&
+        get(/databases/$(database)/documents/villas/$(resource.data.villaId)).data.phoneNumber == myPhone();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow write, delete: if isAdmin();
+    }
+  }
+}

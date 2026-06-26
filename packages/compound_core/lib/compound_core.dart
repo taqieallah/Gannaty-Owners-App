@@ -8,6 +8,7 @@ export 'models/annual_settlement.dart';
 export 'models/announcement.dart';
 export 'models/owner_account.dart';
 export 'models/owner_ledger_entry.dart';
+export 'models/owner_statement.dart';
 export 'repositories/villa_repository.dart';
 export 'repositories/payment_repository.dart';
 export 'repositories/service_request_repository.dart';

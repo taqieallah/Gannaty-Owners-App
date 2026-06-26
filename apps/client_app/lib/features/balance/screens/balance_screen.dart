@@ -174,6 +174,29 @@ class BalanceScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
+              // ── Detailed account statement (matches the ERP Excel/PDF) ──
+              if (account.statement != null &&
+                  account.statement!.rows.isNotEmpty) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${t.accountStatement} ${account.year}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        for (final r in account.statement!.rows)
+                          _StatementRowView(row: r),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // ── Year settings details ───────────────────────────────────
               if (account.meterPrice > 0) ...[
                 Card(
@@ -500,6 +523,86 @@ class _Row extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: effectiveColor,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Renders one detailed statement row (label / details / amount) exactly like
+/// the ERP's Excel/PDF account breakdown.
+class _StatementRowView extends StatelessWidget {
+  const _StatementRowView({required this.row});
+
+  final OwnerStatementRow row;
+
+  static String _money(double v) {
+    final neg = v < 0;
+    final s = v.abs().toStringAsFixed(2);
+    final parts = s.split('.');
+    final intPart = parts[0];
+    final buf = StringBuffer();
+    for (var i = 0; i < intPart.length; i++) {
+      if (i > 0 && (intPart.length - i) % 3 == 0) buf.write(',');
+      buf.write(intPart[i]);
+    }
+    final out = '$buf.${parts[1]}';
+    return neg ? '($out)' : out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (row.kind == 'section') {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 6),
+        child: Text(
+          row.label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: cs.primary,
+              ),
+        ),
+      );
+    }
+
+    final isResult = row.kind == 'result';
+    final amount = row.amount;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight:
+                            (row.bold || isResult) ? FontWeight.w800 : null,
+                      ),
+                ),
+                if (row.details.isNotEmpty)
+                  Text(
+                    row.details,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            amount == null ? '—' : '${_money(amount)} EGP',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight:
+                      (row.bold || isResult) ? FontWeight.w800 : FontWeight.w600,
                 ),
           ),
         ],

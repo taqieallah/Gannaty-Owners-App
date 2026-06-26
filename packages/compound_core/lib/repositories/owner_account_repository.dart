@@ -1,6 +1,7 @@
 ﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/owner_account.dart';
 import '../models/owner_ledger_entry.dart';
+import '../models/owner_statement.dart';
 import '../models/villa.dart';
 
 /// Reads/writes owner financial data from the Firestore collections
@@ -61,6 +62,29 @@ class OwnerAccountRepository {
   Future<CollectionReference<Map<String, dynamic>>> _year() async {
     final uid = await _workspaceUid();
     return _firestore.collection('users/$uid/owner_year_settings');
+  }
+
+  Future<CollectionReference<Map<String, dynamic>>> _statements() async {
+    final uid = await _workspaceUid();
+    return _firestore.collection('users/$uid/owner_statements');
+  }
+
+  /// Precomputed statement pushed by the ERP for [ownerId]/[year], or null.
+  Future<OwnerStatement?> _fetchStatement(int ownerId, int year) async {
+    try {
+      final col = await _statements();
+      final doc = await col.doc('$ownerId-$year').get();
+      if (doc.exists && doc.data() != null) {
+        return OwnerStatement.fromMap(doc.data()!);
+      }
+      final snap = await col.where('OwnerId', isEqualTo: ownerId).get();
+      for (final d in snap.docs) {
+        if ((d.data()['Year'] as num?)?.toInt() == year) {
+          return OwnerStatement.fromMap(d.data());
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   // â”€â”€ Auth helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -199,12 +223,17 @@ class OwnerAccountRepository {
       }
     }
 
+    // Prefer the ERP's precomputed statement so the numbers + breakdown match
+    // the Excel/PDF exactly (falls back to local computation if absent).
+    final statement = await _fetchStatement(ownerId, currentYear);
+
     return OwnerAccount.fromFirestore(
       ownerDoc: ownerDoc,
       yearSettings: yearSettings,
       totalCharges: totalCharges,
       totalPayments: totalPayments,
       year: currentYear,
+      statement: statement,
     );
   }
 

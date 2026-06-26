@@ -59,6 +59,59 @@ class HomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
+          // ── Year selector ───────────────────────────────────────────────
+          ref.watch(ownerStatementYearsProvider).maybeWhen(
+                data: (years) {
+                  if (years.isEmpty) return const SizedBox.shrink();
+                  final sel = ref.watch(selectedOwnerYearProvider);
+                  final items = years.contains(sel)
+                      ? years
+                      : [sel, ...years]
+                    ..sort((a, b) => b.compareTo(a));
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month_rounded,
+                            size: 20, color: AppTheme.cognac),
+                        const SizedBox(width: 10),
+                        Text('${t.forYear}:',
+                            style: Theme.of(context).textTheme.bodyMedium),
+                        const Spacer(),
+                        DropdownButton<int>(
+                          value: sel,
+                          underline: const SizedBox.shrink(),
+                          items: items
+                              .map((y) => DropdownMenuItem<int>(
+                                    value: y,
+                                    child: Text('$y',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800)),
+                                  ))
+                              .toList(),
+                          onChanged: (y) {
+                            if (y != null) {
+                              ref
+                                  .read(selectedOwnerYearProvider.notifier)
+                                  .set(y);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
+
           // ── Owner account metric cards ──────────────────────────────────
           accountAsync.when(
             data: (account) {

@@ -69,6 +69,23 @@ class OwnerAccountRepository {
     return _firestore.collection('users/$uid/owner_statements');
   }
 
+  /// Years that have a precomputed statement for [ownerId], newest first.
+  /// Falls back to the current year when none exist.
+  Future<List<int>> availableStatementYears(int ownerId) async {
+    try {
+      final col = await _statements();
+      final snap = await col.where('OwnerId', isEqualTo: ownerId).get();
+      final years = snap.docs
+          .map((d) => (d.data()['Year'] as num?)?.toInt())
+          .whereType<int>()
+          .toSet()
+          .toList()
+        ..sort((a, b) => b.compareTo(a));
+      if (years.isNotEmpty) return years;
+    } catch (_) {}
+    return [DateTime.now().year];
+  }
+
   /// Precomputed statement pushed by the ERP for [ownerId]/[year], or null.
   Future<OwnerStatement?> _fetchStatement(int ownerId, int year) async {
     try {

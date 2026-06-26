@@ -289,19 +289,44 @@ final settlementsProvider = StreamProvider<List<AnnualSettlement>>((ref) {
       .watchByVilla(villa.id);
 });
 
-/// Owner account with computed balance for the current year.
+/// The account year the owner is currently viewing (defaults to this year).
+class SelectedOwnerYearNotifier extends Notifier<int> {
+  @override
+  int build() => DateTime.now().year;
+  void set(int year) => state = year;
+}
+
+final selectedOwnerYearProvider =
+    NotifierProvider<SelectedOwnerYearNotifier, int>(
+        SelectedOwnerYearNotifier.new);
+
+/// Years that have a published statement for the signed-in owner (newest first).
+final ownerStatementYearsProvider = FutureProvider<List<int>>((ref) async {
+  final villa = ref.watch(currentVillaProvider);
+  if (villa == null) return [DateTime.now().year];
+  final repo = ref.watch(ownerAccountRepositoryProvider);
+  if (villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
+    final ownerId = int.tryParse(
+        villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+    if (ownerId != null) return repo.availableStatementYears(ownerId);
+  }
+  return [DateTime.now().year];
+});
+
+/// Owner account with the precomputed balance for the selected year.
 /// If the session is owner-based (id starts with "owner_") → fetches by ID directly.
 /// Otherwise falls back to VillaNo lookup for legacy villas-collection sessions.
 final ownerAccountProvider = FutureProvider<OwnerAccount?>((ref) async {
   final villa = ref.watch(currentVillaProvider);
   if (villa == null) return null;
+  final year = ref.watch(selectedOwnerYearProvider);
   final repo = ref.watch(ownerAccountRepositoryProvider);
   if (villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
     final ownerId = int.tryParse(
         villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
-    if (ownerId != null) return repo.fetchById(ownerId);
+    if (ownerId != null) return repo.fetchById(ownerId, year: year);
   }
-  return repo.fetchByVillaNo(villa.villaNumber);
+  return repo.fetchByVillaNo(villa.villaNumber, year: year);
 });
 
 /// All ledger entries for the owner, sorted newest first (one-shot fetch).

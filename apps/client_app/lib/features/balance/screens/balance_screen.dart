@@ -41,6 +41,64 @@ class BalanceScreen extends ConsumerWidget {
 
           return ListView(
             children: [
+              // ── Year selector ───────────────────────────────────────────
+              ref.watch(ownerStatementYearsProvider).maybeWhen(
+                    data: (years) {
+                      final sel = ref.watch(selectedOwnerYearProvider);
+                      final items = years.contains(sel)
+                          ? years
+                          : [sel, ...years]
+                        ..sort((a, b) => b.compareTo(a));
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.calendar_month_rounded,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 10),
+                              Text('${t.forYear}:',
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium),
+                              const Spacer(),
+                              DropdownButton<int>(
+                                value: sel,
+                                underline: const SizedBox.shrink(),
+                                items: items
+                                    .map((y) => DropdownMenuItem<int>(
+                                          value: y,
+                                          child: Text('$y',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w800)),
+                                        ))
+                                    .toList(),
+                                onChanged: (y) {
+                                  if (y != null) {
+                                    ref
+                                        .read(selectedOwnerYearProvider.notifier)
+                                        .set(y);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    orElse: () => const SizedBox.shrink(),
+                  ),
+
               // ── Hero balance card ───────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(22),

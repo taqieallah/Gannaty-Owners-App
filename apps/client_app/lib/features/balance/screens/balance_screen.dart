@@ -24,6 +24,18 @@ class BalanceScreen extends ConsumerWidget {
     ref.listen(ownerTransactionsStreamProvider, (prev, next) {
       if (next.hasValue) ref.invalidate(ownerAccountProvider);
     });
+    // Default the selected year to the newest year that actually has a
+    // published statement (avoids landing on a year with no data).
+    ref.listen(ownerStatementYearsProvider, (prev, next) {
+      final years = next.value;
+      if (years == null || years.isEmpty) return;
+      final sel = ref.read(selectedOwnerYearProvider);
+      if (!years.contains(sel)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(selectedOwnerYearProvider.notifier).set(years.first);
+        });
+      }
+    });
     final settings = ref.watch(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final t = AppText(settings);
@@ -36,6 +48,7 @@ class BalanceScreen extends ConsumerWidget {
         data: (account) {
           if (account == null) return _NotSetupState(t: t);
 
+          final st = account.statement;
           final isCredit = account.isCredit;
           final balanceAbs = account.balance.abs();
 
@@ -99,6 +112,12 @@ class BalanceScreen extends ConsumerWidget {
                     orElse: () => const SizedBox.shrink(),
                   ),
 
+              // No published statement for the selected year → show a clear
+              // notice instead of misleading locally-computed numbers.
+              if (st == null)
+                _NoStatementCard(
+                    year: account.year, isArabic: settings.isArabic)
+              else ...[
               // ── Hero balance card ───────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(22),
@@ -255,42 +274,70 @@ class BalanceScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
 
-              // ── Year settings details ───────────────────────────────────
-              if (account.meterPrice > 0) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${t.accountStatement} ${account.year}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 14),
+              // ── Year basis: settled → meter/area/deposit ;
+              //    unsettled (current year) → monthly amount × months + opening
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${t.accountStatement} ${account.year}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 14),
+                      if (st.isUnsettled) ...[
                         _Row(
-                          label: t.area,
-                          value:
-                              '${account.villaArea.toStringAsFixed(0)} م²',
+                          label: settings.isArabic
+                              ? 'المبلغ الشهري'
+                              : 'Monthly amount',
+                          value: '${st.monthly.toStringAsFixed(0)} EGP',
                         ),
                         _Row(
-                          label: t.pricePerMeterLabel,
-                          value:
-                              '${account.meterPrice.toStringAsFixed(0)} EGP/م²',
+                          label: settings.isArabic
+                              ? 'عدد الأشهر المستحقة'
+                              : 'Months due',
+                          value: '${st.billedMonths}',
                         ),
-                        if (account.depositPaid > 0) ...[
+                        if (st.openingBalance != 0)
+                          _Row(
+                            label: t.openingBalance,
+                            value:
+                                '${st.openingBalance.toStringAsFixed(0)} EGP',
+                          ),
+                      ] else ...[
+                        if (st.area > 0)
+                          _Row(
+                            label: t.area,
+                            value: '${st.area.toStringAsFixed(0)} م²',
+                          ),
+                        if (st.meterPrice > 0)
+                          _Row(
+                            label: t.pricePerMeterLabel,
+                            value:
+                                '${st.meterPrice.toStringAsFixed(0)} EGP/م²',
+                          ),
+                        if (account.depositPaid > 0)
                           _Row(
                             label: t.deposit,
                             value:
                                 '${account.depositPaid.toStringAsFixed(0)} EGP',
                           ),
-                        ],
+                        if (st.depositReturn > 0)
+                          _Row(
+                            label: t.depositReturn,
+                            value:
+                                '− ${st.depositReturn.toStringAsFixed(0)} EGP',
+                            color: AppTheme.success,
+                          ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
+              const SizedBox(height: 16),
+              ], // end: statement present
 
               // ── Ledger history ──────────────────────────────────────────
               txAsync.when(
@@ -307,6 +354,50 @@ class BalanceScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+// ── No statement for the selected year ──────────────────────────────────────
+
+class _NoStatementCard extends StatelessWidget {
+  const _NoStatementCard({required this.year, required this.isArabic});
+
+  final int year;
+  final bool isArabic;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(Icons.receipt_long_outlined,
+                size: 44, color: cs.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              isArabic
+                  ? 'كشف سنة $year غير متاح بعد'
+                  : 'Statement for $year is not available yet',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isArabic
+                  ? 'برجاء الطلب من الإدارة تحديث كشوف الحساب، أو اختر سنة أخرى من الأعلى.'
+                  : 'Please ask management to refresh the statements, or pick another year above.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
     );
   }

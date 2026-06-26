@@ -43,6 +43,12 @@ service cloud.firestore {
       allow write, delete: if isAdmin();
     }
 
+    // Precomputed account statements pushed by the ERP (read by the client).
+    match /users/{workspaceUid}/owner_statements/{statementId} {
+      allow read: if request.auth != null;
+      allow write, delete: if isAdmin();
+    }
+
     // ── Existing compound collections ─────────────────────────────────────
     match /villas/{villaId} {
       allow read: if request.auth != null;

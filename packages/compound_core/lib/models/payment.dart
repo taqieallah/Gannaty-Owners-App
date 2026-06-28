@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../utils/cloud_dates.dart';
+
 class Payment extends Equatable {
   final String id;
   final String villaId;
@@ -41,23 +43,25 @@ class Payment extends Equatable {
     return '${months[month - 1]} $year';
   }
 
-  factory Payment.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Payment.fromFirestore(DocumentSnapshot doc) =>
+      Payment.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+
+  factory Payment.fromMap(String id, Map<String, dynamic> data) {
     return Payment(
-      id: doc.id,
-      villaId: data['villaId'] as String,
-      villaNumber: data['villaNumber'] as String,
-      month: data['month'] as int,
-      year: data['year'] as int,
-      amount: (data['amount'] as num).toDouble(),
-      dueDate: (data['dueDate'] as Timestamp).toDate(),
-      isPaid: data['isPaid'] as bool,
+      id: id,
+      villaId: (data['villaId'] ?? '').toString(),
+      villaNumber: (data['villaNumber'] ?? '').toString(),
+      month: (data['month'] as num?)?.toInt() ?? 0,
+      year: (data['year'] as num?)?.toInt() ?? 0,
+      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      dueDate: parseFlexDate(data['dueDate']),
+      isPaid: data['isPaid'] as bool? ?? false,
       description: data['description'] as String?,
       receiptNumber: data['receiptNumber']?.toString() ?? '',
       attachments: data['attachments'] != null
           ? List<String>.from(data['attachments'] as List)
           : const [],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: parseFlexDate(data['createdAt']),
     );
   }
 
@@ -73,6 +77,20 @@ class Payment extends Equatable {
         'receiptNumber': receiptNumber,
         'attachments': attachments,
         'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  Map<String, dynamic> toMap() => {
+        'villaId': villaId,
+        'villaNumber': villaNumber,
+        'month': month,
+        'year': year,
+        'amount': amount,
+        'dueDate': dueDate.toIso8601String(),
+        'isPaid': isPaid,
+        'description': description,
+        'receiptNumber': receiptNumber,
+        'attachments': attachments,
+        'createdAt': createdAt.toIso8601String(),
       };
 
   Payment copyWith({

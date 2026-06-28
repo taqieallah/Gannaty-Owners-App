@@ -1,10 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:compound_core/compound_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,15 +18,8 @@ final annualSettlementRepositoryProvider =
       (ref) => AnnualSettlementRepository(),
     );
 
-/// Firestore instance from the `gannaty-expenses` secondary Firebase app,
-/// where I:\Rebrand stores all owner account data.
-final _expensesFirestore = Provider<FirebaseFirestore>((ref) {
-  final app = Firebase.app('expenses');
-  return FirebaseFirestore.instanceFor(app: app);
-});
-
 final ownerAccountRepositoryProvider = Provider<OwnerAccountRepository>((ref) {
-  return OwnerAccountRepository(firestore: ref.read(_expensesFirestore));
+  return OwnerAccountRepository();
 });
 final sharedPreferencesProvider =
     FutureProvider<SharedPreferences>((ref) => SharedPreferences.getInstance());
@@ -78,42 +67,21 @@ class SessionController extends AsyncNotifier<Villa?> {
 
   // ── Expenses Firebase auth ───────────────────────────────────────────────
 
-  /// Ensures the client is signed in anonymously on the `gannaty-expenses`
-  /// secondary Firebase app so Firestore security rules allow owner reads.
+  /// Ensures the client has an anonymous Supabase session so RLS allows the
+  /// owner reads (mirrors the old anonymous Firebase auth).
   static Future<void> _ensureExpensesAuth() async {
     try {
-      final expensesAuth = FirebaseAuth.instanceFor(app: Firebase.app('expenses'));
-      if (expensesAuth.currentUser == null) {
-        await expensesAuth.signInAnonymously();
+      final auth = SupaConfig.client.auth;
+      if (auth.currentUser == null) {
+        await auth.signInAnonymously();
       }
     } catch (_) {
-      // Non-critical — Firestore read will fail with permission-denied if auth
-      // is unavailable, which will surface as a user-visible error anyway.
+      // Non-critical — a failed read will surface as a user-visible error.
     }
   }
 
-  /// Saves the device FCM token to the owner Firestore doc so admin can
-  /// send push notifications to this specific device.
-  static Future<void> _saveFcmToken(String ownerDocId, int ownerId) async {
-    try {
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token == null || token.isEmpty) return;
-      final expensesAuth =
-          FirebaseAuth.instanceFor(app: Firebase.app('expenses'));
-      if (expensesAuth.currentUser == null) {
-        await expensesAuth.signInAnonymously();
-      }
-      final firestore = FirebaseFirestore.instanceFor(
-          app: Firebase.app('expenses'));
-      final uid = '5nCpbFKDt1NyrXCw56HaattDVT42';
-      await firestore
-          .collection('users/$uid/owners')
-          .doc(ownerDocId)
-          .update({'FcmToken': token});
-    } catch (_) {
-      // Non-critical — notifications will just not work on this device.
-    }
-  }
+  /// Push notifications are deferred on the Supabase build.
+  static Future<void> _saveFcmToken(String ownerDocId, int ownerId) async {}
 
   // ── Sign in ──────────────────────────────────────────────────────────────
 

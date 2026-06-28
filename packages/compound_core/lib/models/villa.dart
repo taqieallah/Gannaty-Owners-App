@@ -30,13 +30,17 @@ class Villa extends Equatable {
     required this.createdAt,
   });
 
-  factory Villa.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Villa.fromFirestore(DocumentSnapshot doc) =>
+      Villa.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+
+  /// Backend-neutral builder. `createdAt` may be a Firestore Timestamp, an ISO
+  /// string (Supabase), or epoch millis.
+  factory Villa.fromMap(String id, Map<String, dynamic> data) {
     return Villa(
-      id: doc.id,
-      villaNumber: data['villaNumber'] as String,
-      ownerName: data['ownerName'] as String,
-      phoneNumber: data['phoneNumber'] as String,
+      id: id,
+      villaNumber: (data['villaNumber'] ?? '').toString(),
+      ownerName: (data['ownerName'] ?? '').toString(),
+      phoneNumber: (data['phoneNumber'] ?? '').toString(),
       area: (data['area'] as num?)?.toDouble() ?? 0,
       annualFee: (data['annualFee'] as num?)?.toDouble() ?? 18000,
       depositAmount: (data['depositAmount'] as num?)?.toDouble() ?? 0,
@@ -44,9 +48,33 @@ class Villa extends Equatable {
       debt2024: (data['debt2024'] as num?)?.toDouble() ?? 0,
       debt2025: (data['debt2025'] as num?)?.toDouble() ?? 0,
       isFirstLogin: data['isFirstLogin'] as bool? ?? true,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      createdAt: parseDate(data['createdAt']),
     );
   }
+
+  /// Parses a date stored as Firestore Timestamp, ISO-8601 string, or millis.
+  static DateTime parseDate(Object? v) {
+    if (v is Timestamp) return v.toDate();
+    if (v is DateTime) return v;
+    if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
+    if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
+    return DateTime.now();
+  }
+
+  /// Backend-neutral map (dates as ISO strings — Supabase stores jsonb).
+  Map<String, dynamic> toMap() => {
+        'villaNumber': villaNumber,
+        'ownerName': ownerName,
+        'phoneNumber': phoneNumber,
+        'area': area,
+        'annualFee': annualFee,
+        'depositAmount': depositAmount,
+        'password': password,
+        'debt2024': debt2024,
+        'debt2025': debt2025,
+        'isFirstLogin': isFirstLogin,
+        'createdAt': createdAt.toIso8601String(),
+      };
 
   Map<String, dynamic> toFirestore() => {
         'villaNumber': villaNumber,

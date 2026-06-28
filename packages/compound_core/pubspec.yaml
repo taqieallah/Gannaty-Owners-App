@@ -14,5 +14,7 @@ dependencies:
   excel: ^4.0.6
   equatable: ^2.0.5
   intl: ^0.20.2
+  # Supabase backend (used on the `supabase` branch as a Firebase replacement).
+  supabase_flutter: ^2.8.0
   flutter:
     sdk: flutter

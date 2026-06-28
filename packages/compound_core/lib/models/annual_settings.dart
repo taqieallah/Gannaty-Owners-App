@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../utils/cloud_dates.dart';
+
 /// Holds the compound-wide settings for a specific year.
 /// Admin sets pricePerMeter and depositRate once per year.
 /// Document ID = year.toString() e.g. "2025"
@@ -19,14 +21,16 @@ class AnnualSettings extends Equatable {
     required this.createdAt,
   });
 
-  factory AnnualSettings.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory AnnualSettings.fromFirestore(DocumentSnapshot doc) =>
+      AnnualSettings.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+
+  factory AnnualSettings.fromMap(String id, Map<String, dynamic> data) {
     return AnnualSettings(
-      id: doc.id,
-      year: data['year'] as int,
-      pricePerMeter: (data['pricePerMeter'] as num).toDouble(),
-      depositRate: (data['depositRate'] as num).toDouble(),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      id: id,
+      year: (data['year'] as num?)?.toInt() ?? 0,
+      pricePerMeter: (data['pricePerMeter'] as num?)?.toDouble() ?? 0,
+      depositRate: (data['depositRate'] as num?)?.toDouble() ?? 0,
+      createdAt: parseFlexDate(data['createdAt']),
     );
   }
 
@@ -35,6 +39,13 @@ class AnnualSettings extends Equatable {
         'pricePerMeter': pricePerMeter,
         'depositRate': depositRate,
         'createdAt': Timestamp.fromDate(createdAt),
+      };
+
+  Map<String, dynamic> toMap() => {
+        'year': year,
+        'pricePerMeter': pricePerMeter,
+        'depositRate': depositRate,
+        'createdAt': createdAt.toIso8601String(),
       };
 
   @override

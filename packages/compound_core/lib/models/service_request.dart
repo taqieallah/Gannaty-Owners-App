@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../utils/cloud_dates.dart';
+
 enum ServiceRequestType { maintenance, complaint, other }
 
 enum ServiceRequestStatus { pending, inProgress, solved }
@@ -82,24 +84,27 @@ class ServiceRequest extends Equatable {
     required this.updatedAt,
   });
 
-  factory ServiceRequest.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory ServiceRequest.fromFirestore(DocumentSnapshot doc) =>
+      ServiceRequest.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+
+  factory ServiceRequest.fromMap(String id, Map<String, dynamic> data) {
     return ServiceRequest(
-      id: doc.id,
-      villaId: data['villaId'] as String,
-      villaNumber: data['villaNumber'] as String,
-      clientPhone: data['clientPhone'] as String,
+      id: id,
+      villaId: (data['villaId'] ?? '').toString(),
+      villaNumber: (data['villaNumber'] ?? '').toString(),
+      clientPhone: (data['clientPhone'] ?? '').toString(),
       clientName: data['clientName'] as String? ?? '',
       type: ServiceRequestType.values.firstWhere(
-        (e) => e.name == (data['type'] as String),
+        (e) => e.name == (data['type'] as String? ?? ''),
         orElse: () => ServiceRequestType.other,
       ),
-      description: data['description'] as String,
-      status: ServiceRequestStatusX.fromString(data['status'] as String),
+      description: (data['description'] ?? '').toString(),
+      status: ServiceRequestStatusX.fromString(
+          data['status'] as String? ?? 'pending'),
       imageUrl: data['imageUrl'] as String?,
       adminNote: data['adminNote'] as String?,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      createdAt: parseFlexDate(data['createdAt']),
+      updatedAt: parseFlexDate(data['updatedAt']),
     );
   }
 
@@ -115,6 +120,20 @@ class ServiceRequest extends Equatable {
         'adminNote': adminNote,
         'createdAt': Timestamp.fromDate(createdAt),
         'updatedAt': Timestamp.fromDate(updatedAt),
+      };
+
+  Map<String, dynamic> toMap() => {
+        'villaId': villaId,
+        'villaNumber': villaNumber,
+        'clientPhone': clientPhone,
+        'clientName': clientName,
+        'type': type.name,
+        'description': description,
+        'status': status.firestoreValue,
+        'imageUrl': imageUrl,
+        'adminNote': adminNote,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
       };
 
   ServiceRequest copyWith({

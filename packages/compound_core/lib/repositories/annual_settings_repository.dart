@@ -1,23 +1,27 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../cloud/supa_db.dart';
 import '../models/annual_settings.dart';
 
+/// Annual settings, backed by Supabase (collection `annualSettings`,
+/// doc id = year). The owners app reads one year's settings at a time.
 class AnnualSettingsRepository {
-  final _col = FirebaseFirestore.instance.collection('annualSettings');
+  static const _collection = 'annualSettings';
+  final SupaDb _db = SupaDb.instance;
 
   Stream<AnnualSettings?> watch(int year) {
-    return _col.doc(year.toString()).snapshots().map((doc) {
-      if (!doc.exists) return null;
-      return AnnualSettings.fromFirestore(doc);
+    final id = year.toString();
+    return _db.watch(_collection).map((docs) {
+      for (final d in docs) {
+        if (d.id == id) return AnnualSettings.fromMap(d.id, d.data);
+      }
+      return null;
     });
   }
 
   Future<AnnualSettings?> get(int year) async {
-    final doc = await _col.doc(year.toString()).get();
-    if (!doc.exists) return null;
-    return AnnualSettings.fromFirestore(doc);
+    final d = await _db.getById(_collection, year.toString());
+    return d == null ? null : AnnualSettings.fromMap(d.id, d.data);
   }
 
-  Future<void> save(AnnualSettings settings) async {
-    await _col.doc(settings.year.toString()).set(settings.toFirestore());
-  }
+  Future<void> save(AnnualSettings settings) =>
+      _db.set(_collection, settings.year.toString(), settings.toMap());
 }

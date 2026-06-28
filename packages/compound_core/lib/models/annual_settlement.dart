@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../utils/cloud_dates.dart';
+
 /// Year-end financial settlement for a single villa.
 ///
 /// Formula:
@@ -55,26 +57,46 @@ class AnnualSettlement extends Equatable {
     required this.createdAt,
   });
 
-  factory AnnualSettlement.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+  factory AnnualSettlement.fromFirestore(DocumentSnapshot doc) =>
+      AnnualSettlement.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+
+  factory AnnualSettlement.fromMap(String id, Map<String, dynamic> d) {
+    double n(String k) => (d[k] as num?)?.toDouble() ?? 0;
     return AnnualSettlement(
-      id: doc.id,
-      villaId: d['villaId'] as String,
-      villaNumber: d['villaNumber'] as String,
-      ownerName: d['ownerName'] as String,
-      year: d['year'] as int,
-      openingBalance: (d['openingBalance'] as num).toDouble(),
-      pricePerMeter: (d['pricePerMeter'] as num).toDouble(),
-      area: (d['area'] as num).toDouble(),
-      actualCost: (d['actualCost'] as num).toDouble(),
-      depositAmount: (d['depositAmount'] as num).toDouble(),
-      depositRate: (d['depositRate'] as num).toDouble(),
-      depositReturn: (d['depositReturn'] as num).toDouble(),
-      totalPaid: (d['totalPaid'] as num).toDouble(),
-      closingBalance: (d['closingBalance'] as num).toDouble(),
-      createdAt: (d['createdAt'] as Timestamp).toDate(),
+      id: id,
+      villaId: (d['villaId'] ?? '').toString(),
+      villaNumber: (d['villaNumber'] ?? '').toString(),
+      ownerName: (d['ownerName'] ?? '').toString(),
+      year: (d['year'] as num?)?.toInt() ?? 0,
+      openingBalance: n('openingBalance'),
+      pricePerMeter: n('pricePerMeter'),
+      area: n('area'),
+      actualCost: n('actualCost'),
+      depositAmount: n('depositAmount'),
+      depositRate: n('depositRate'),
+      depositReturn: n('depositReturn'),
+      totalPaid: n('totalPaid'),
+      closingBalance: n('closingBalance'),
+      createdAt: parseFlexDate(d['createdAt']),
     );
   }
+
+  Map<String, dynamic> toMap() => {
+        'villaId': villaId,
+        'villaNumber': villaNumber,
+        'ownerName': ownerName,
+        'year': year,
+        'openingBalance': openingBalance,
+        'pricePerMeter': pricePerMeter,
+        'area': area,
+        'actualCost': actualCost,
+        'depositAmount': depositAmount,
+        'depositRate': depositRate,
+        'depositReturn': depositReturn,
+        'totalPaid': totalPaid,
+        'closingBalance': closingBalance,
+        'createdAt': createdAt.toIso8601String(),
+      };
 
   Map<String, dynamic> toFirestore() => {
         'villaId': villaId,

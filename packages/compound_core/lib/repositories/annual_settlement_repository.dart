@@ -1,66 +1,60 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../cloud/supa_db.dart';
 import '../models/annual_settlement.dart';
 import '../models/annual_settings.dart';
+import '../models/payment.dart';
 import '../models/villa.dart';
 
+/// Annual settlements, backed by Supabase (collection `annualSettlements`).
 class AnnualSettlementRepository {
-  final _col = FirebaseFirestore.instance.collection('annualSettlements');
-  final _payments = FirebaseFirestore.instance.collection('payments');
+  static const _collection = 'annualSettlements';
+  static const _paymentsCollection = 'payments';
+  final SupaDb _db = SupaDb.instance;
 
-  /// Stream all settlements, newest year first
+  /// Stream all settlements, newest year first.
   Stream<List<AnnualSettlement>> watchAll() {
-    return _col
-        .orderBy('year', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map(AnnualSettlement.fromFirestore).toList());
+    return _db.watch(_collection).map((docs) {
+      final items =
+          docs.map((d) => AnnualSettlement.fromMap(d.id, d.data)).toList();
+      items.sort((a, b) => b.year.compareTo(a.year));
+      return items;
+    });
   }
 
-  /// Stream settlements for a specific villa.
-  /// Sorted in Dart to avoid requiring a Firestore composite index
-  /// on (villaId + year), which would need manual creation.
+  /// Stream settlements for a specific villa, newest year first.
   Stream<List<AnnualSettlement>> watchByVilla(String villaId) {
-    return _col
-        .where('villaId', isEqualTo: villaId)
-        .snapshots()
-        .map((s) {
-          final items =
-              s.docs.map(AnnualSettlement.fromFirestore).toList();
-          items.sort((a, b) => b.year.compareTo(a.year));
-          return items;
-        });
+    return _db.watch(_collection).map((docs) {
+      final items = docs
+          .map((d) => AnnualSettlement.fromMap(d.id, d.data))
+          .where((s) => s.villaId == villaId)
+          .toList();
+      items.sort((a, b) => b.year.compareTo(a.year));
+      return items;
+    });
   }
 
-  /// Get settlement for a specific villa + year — always reads from
-  /// the server to avoid stale cache when re-running settlements.
-  Future<AnnualSettlement?> getByVillaAndYear(
-      String villaId, int year) async {
-    final snap = await _col
-        .where('villaId', isEqualTo: villaId)
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get(const GetOptions(source: Source.server));
-    if (snap.docs.isEmpty) return null;
-    return AnnualSettlement.fromFirestore(snap.docs.first);
+  Future<AnnualSettlement?> getByVillaAndYear(String villaId, int year) async {
+    final docs = await _db.list(_collection);
+    for (final d in docs) {
+      final s = AnnualSettlement.fromMap(d.id, d.data);
+      if (s.villaId == villaId && s.year == year) return s;
+    }
+    return null;
   }
 
-  /// Sum all PAID payments for a villa in a given year
+  /// Sum all PAID payments for a villa in a given year.
   Future<double> getTotalPaid(String villaId, int year) async {
-    final snap = await _payments
-        .where('villaId', isEqualTo: villaId)
-        .where('year', isEqualTo: year)
-        .where('isPaid', isEqualTo: true)
-        .get();
-    return snap.docs.fold<double>(
-        0, (sum, doc) => sum + ((doc['amount'] as num).toDouble()));
+    final docs = await _db.list(_paymentsCollection);
+    return docs
+        .map((d) => Payment.fromMap(d.id, d.data))
+        .where((p) => p.villaId == villaId && p.year == year && p.isPaid)
+        .fold<double>(0, (sum, p) => sum + p.amount);
   }
 
-  /// Calculate and save settlement for one villa.
-  /// Returns the saved settlement.
+  /// Calculate and save settlement for one villa; returns the saved settlement.
   Future<AnnualSettlement> settle({
     required Villa villa,
     required AnnualSettings settings,
   }) async {
-    // Get previous year's closing balance as opening balance
     final prev = await getByVillaAndYear(villa.id, settings.year - 1);
     final openingBalance = prev?.closingBalance ?? 0;
 
@@ -71,7 +65,7 @@ class AnnualSettlementRepository {
     final closingBalance =
         openingBalance + actualCost - depositReturn - totalPaid;
 
-    final settlement = AnnualSettlement(
+    var settlement = AnnualSettlement(
       id: '',
       villaId: villa.id,
       villaNumber: villa.villaNumber,
@@ -89,17 +83,15 @@ class AnnualSettlementRepository {
       createdAt: DateTime.now(),
     );
 
-    // Check if settlement already exists for this villa/year — update if so
     final existing = await getByVillaAndYear(villa.id, settings.year);
     if (existing != null) {
-      await _col.doc(existing.id).set(settlement.toFirestore());
-      return AnnualSettlement.fromFirestore(
-          await _col.doc(existing.id).get());
-    } else {
-      final ref = await _col.add(settlement.toFirestore());
-      return AnnualSettlement.fromFirestore(await ref.get());
+      await _db.set(_collection, existing.id, settlement.toMap());
+      return settlement = AnnualSettlement.fromMap(
+          existing.id, settlement.toMap());
     }
+    final id = await _db.add(_collection, settlement.toMap());
+    return AnnualSettlement.fromMap(id, settlement.toMap());
   }
 
-  Future<void> delete(String id) => _col.doc(id).delete();
+  Future<void> delete(String id) => _db.delete(_collection, id);
 }

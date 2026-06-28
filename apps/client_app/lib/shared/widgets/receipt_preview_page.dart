@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:compound_core/compound_core.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
@@ -34,9 +33,8 @@ class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
     }
 
     try {
-      final storage = FirebaseStorage.instanceFor(app: Firebase.app('expenses'));
-      final bytes = await storage.ref(source).getData(25 * 1024 * 1024);
-      if (bytes != null && bytes.isNotEmpty) {
+      final bytes = await SupaStorage.downloadBytes(source);
+      if (bytes.isNotEmpty) {
         return _PreviewData(bytes: bytes, name: source);
       }
     } catch (_) {}

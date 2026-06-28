@@ -71,8 +71,26 @@ class OwnerAccount {
     required double totalPayments,
     required int year,
     OwnerStatement? statement,
+  }) =>
+      fromMap(
+        ownerData: ownerDoc.data()!,
+        yearSettings: yearSettings,
+        totalCharges: totalCharges,
+        totalPayments: totalPayments,
+        year: year,
+        statement: statement,
+      );
+
+  /// Backend-neutral builder from a plain owner data map (Supabase).
+  static OwnerAccount fromMap({
+    required Map<String, dynamic> ownerData,
+    required Map<String, Object?>? yearSettings,
+    required double totalCharges,
+    required double totalPayments,
+    required int year,
+    OwnerStatement? statement,
   }) {
-    final d = ownerDoc.data()!;
+    final d = ownerData;
     final ys = yearSettings ?? const <String, Object?>{};
     return OwnerAccount(
       id: (d['Id'] as num).toInt(),

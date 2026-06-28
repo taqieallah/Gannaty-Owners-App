@@ -1,16 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../cloud/supa_db.dart';
 import '../models/announcement.dart';
 
+/// Announcements, backed by Supabase (collection `announcements`).
 class AnnouncementRepository {
-  AnnouncementRepository([FirebaseFirestore? firestore])
-      : _db = firestore ?? FirebaseFirestore.instance;
+  AnnouncementRepository();
 
-  final FirebaseFirestore _db;
+  static const _collection = 'announcements';
+  final SupaDb _db = SupaDb.instance;
 
-  Stream<List<Announcement>> watchAll() => _db
-      .collection('announcements')
-      .orderBy('createdAt', descending: true)
-      .snapshots()
-      .map((snap) => snap.docs.map(Announcement.fromFirestore).toList());
+  Stream<List<Announcement>> watchAll() {
+    return _db.watch(_collection).map((docs) {
+      final items =
+          docs.map((d) => Announcement.fromMap(d.id, d.data)).toList();
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return items;
+    });
+  }
 }

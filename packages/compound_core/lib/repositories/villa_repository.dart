@@ -1,71 +1,58 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../cloud/supa_db.dart';
 import '../models/villa.dart';
 
+/// Villas, backed by Supabase (`documents` table, collection `villas`).
 class VillaRepository {
-  final FirebaseFirestore _firestore;
+  VillaRepository();
 
-  VillaRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
-
-  CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('villas');
+  static const _collection = 'villas';
+  final SupaDb _db = SupaDb.instance;
 
   Stream<List<Villa>> watchAll() {
-    return _collection
-        .orderBy('villaNumber')
-        .snapshots()
-        .map((snap) => snap.docs.map(Villa.fromFirestore).toList());
+    return _db.watch(_collection).map((docs) {
+      final villas = docs.map((d) => Villa.fromMap(d.id, d.data)).toList();
+      villas.sort((a, b) => a.villaNumber.compareTo(b.villaNumber));
+      return villas;
+    });
   }
 
   Future<Villa?> findByPhone(String phone) async {
     final rawPhone = phone.trim();
-    final snap = await _collection
-        .where('phoneNumber', isEqualTo: rawPhone)
-        .limit(1)
-        .get();
-    if (snap.docs.isNotEmpty) {
-      return Villa.fromFirestore(snap.docs.first);
+    final exact = await _db.queryEq(_collection, 'phoneNumber', rawPhone, limit: 1);
+    if (exact.isNotEmpty) {
+      return Villa.fromMap(exact.first.id, exact.first.data);
     }
 
     final normalized = _normalizePhone(rawPhone);
     if (normalized.isEmpty) return null;
 
-    final all = await _collection.get();
-    for (final doc in all.docs) {
-      final villa = Villa.fromFirestore(doc);
+    final all = await _db.list(_collection);
+    for (final d in all) {
+      final villa = Villa.fromMap(d.id, d.data);
       if (_normalizePhone(villa.phoneNumber) == normalized) {
         return villa;
       }
     }
-
     return null;
   }
 
-  Future<String> add(Villa villa) async {
-    final ref = await _collection.add(villa.toFirestore());
-    return ref.id;
-  }
+  Future<String> add(Villa villa) => _db.add(_collection, villa.toMap());
 
-  Future<void> update(Villa villa) async {
-    await _collection.doc(villa.id).update(villa.toFirestore());
-  }
+  Future<void> update(Villa villa) =>
+      _db.update(_collection, villa.id, villa.toMap());
 
-  /// Update a client's password and clear the first-login flag
-  Future<void> updatePassword(String villaId, String newPassword) async {
-    await _collection.doc(villaId).update({
-      'password': newPassword,
-      'isFirstLogin': false,
-    });
-  }
+  /// Update a client's password and clear the first-login flag.
+  Future<void> updatePassword(String villaId, String newPassword) =>
+      _db.update(_collection, villaId, {
+        'password': newPassword,
+        'isFirstLogin': false,
+      });
 
-  Future<void> delete(String villaId) async {
-    await _collection.doc(villaId).delete();
-  }
+  Future<void> delete(String villaId) => _db.delete(_collection, villaId);
 
   Future<Villa?> getById(String villaId) async {
-    final doc = await _collection.doc(villaId).get();
-    if (!doc.exists) return null;
-    return Villa.fromFirestore(doc);
+    final d = await _db.getById(_collection, villaId);
+    return d == null ? null : Villa.fromMap(d.id, d.data);
   }
 
   static String normalizePhone(String value) => _normalizePhone(value);

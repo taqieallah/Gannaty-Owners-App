@@ -1,5 +1,8 @@
 library compound_core;
 
+export 'cloud/supa_config.dart';
+export 'cloud/supa_db.dart';
+export 'cloud/supa_storage.dart';
 export 'models/villa.dart';
 export 'models/payment.dart';
 export 'models/service_request.dart';

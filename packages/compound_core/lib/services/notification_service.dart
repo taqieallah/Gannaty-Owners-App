@@ -43,53 +43,51 @@ class NotificationService {
   }) async {
     if (!_isSupported) return;
 
-    _messaging = FirebaseMessaging.instance;
-
-    // 1. Request permission (iOS, Android 13+, and web browsers)
-    await _messaging!.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
+    // Local notifications (in-app alerts) — works without Firebase, so set this
+    // up first; the Supabase build relies on it for realtime alerts.
     if (_isMobile) {
-      // 2. Set up local notification plugin for foreground display (mobile only)
       _localNotifications = FlutterLocalNotificationsPlugin();
       await _setupLocalNotifications();
-
-      // 3. Suppress iOS native foreground banner — flutter_local_notifications
-      //    handles foreground display via the onMessage listener below,
-      //    so we disable the system-level presentation to avoid duplicates.
-      await _messaging!.setForegroundNotificationPresentationOptions(
-        alert: false,
-        badge: false,
-        sound: false,
-      );
     }
 
-    // 4. Foreground messages → show notification
-    FirebaseMessaging.onMessage.listen((message) {
+    // Firebase Cloud Messaging — skipped on the Supabase build (no Firebase
+    // initialized). Push is deferred; local/in-app notifications still work.
+    try {
+      _messaging = FirebaseMessaging.instance;
+
+      await _messaging!.requestPermission(alert: true, badge: true, sound: true);
+
       if (_isMobile) {
-        _showLocalNotification(message);
-      } else if (kIsWeb) {
-        final n = message.notification;
-        if (n != null) {
-          showBrowserNotification(n.title ?? '', n.body ?? '');
-        }
+        await _messaging!.setForegroundNotificationPresentationOptions(
+          alert: false,
+          badge: false,
+          sound: false,
+        );
       }
-    });
 
-    // 5. Notification tapped from background state
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      onTap(message.data);
-    });
-
-    // 6. Notification tapped from terminated state
-    final initial = await _messaging!.getInitialMessage();
-    if (initial != null) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        onTap(initial.data);
+      FirebaseMessaging.onMessage.listen((message) {
+        if (_isMobile) {
+          _showLocalNotification(message);
+        } else if (kIsWeb) {
+          final n = message.notification;
+          if (n != null) {
+            showBrowserNotification(n.title ?? '', n.body ?? '');
+          }
+        }
       });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        onTap(message.data);
+      });
+
+      final initial = await _messaging!.getInitialMessage();
+      if (initial != null) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          onTap(initial.data);
+        });
+      }
+    } catch (_) {
+      // No Firebase on this build — push disabled.
     }
   }
 

@@ -1,11 +1,5 @@
-import 'dart:io';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:compound_core/compound_core.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -58,19 +52,17 @@ class _SubmitRequestScreenState extends ConsumerState<SubmitRequestScreen> {
 
     try {
       String? imageUrl;
-      if (_selectedFile != null) {
+      if (_selectedFile != null && _selectedFile!.bytes != null) {
         final file = _selectedFile!;
-        final ext = file.extension ?? 'jpg';
-        final storageRef = FirebaseStorage.instanceFor(app: Firebase.app('expenses')).ref(
-          'service_requests/client_uploads/${villa.id}/${DateTime.now().millisecondsSinceEpoch}.$ext',
+        final ext = (file.extension ?? 'jpg').toLowerCase();
+        final storagePath =
+            'service_requests/client_uploads/${villa.id}/${DateTime.now().millisecondsSinceEpoch}.$ext';
+        final up = await SupaStorage.uploadBytes(
+          bytes: file.bytes!,
+          storagePath: storagePath,
+          contentType: ext == 'png' ? 'image/png' : 'image/jpeg',
         );
-
-        if (file.bytes != null) {
-          await storageRef.putData(file.bytes!);
-        } else if (file.path != null && !kIsWeb) {
-          await storageRef.putFile(File(file.path!));
-        }
-        imageUrl = await storageRef.getDownloadURL();
+        imageUrl = up.downloadUrl;
       }
 
       final request = ServiceRequest(
@@ -119,19 +111,8 @@ class _SubmitRequestScreenState extends ConsumerState<SubmitRequestScreen> {
     required String clientName,
     required ServiceRequestType type,
   }) async {
-    try {
-      final firestore = FirebaseFirestore.instanceFor(app: Firebase.app('expenses'));
-      await firestore.collection('service_request_push_queue').doc(requestId).set({
-        'requestId': requestId,
-        'villaNumber': villaNumber,
-        'clientName': clientName,
-        'type': type.name,
-        'createdAt': FieldValue.serverTimestamp(),
-        'source': 'client_app',
-      });
-    } catch (e) {
-      debugPrint('service request push queue failed: $e');
-    }
+    // Admin push queue is deferred on the Supabase build (no FCM). The request
+    // itself is already saved and shows in the admin app via realtime.
   }
 
   @override

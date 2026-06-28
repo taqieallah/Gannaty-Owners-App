@@ -58,6 +58,20 @@ create policy owners_app_update on public.documents
     and collection in ('owners','villas','serviceRequests')
   );
 
+-- ── Storage: allow clients to upload service-request images ────────────────
+-- The hardened receipts bucket policy requires workspace_members for writes,
+-- which anonymous clients don't have. Scope a narrow INSERT policy to the
+-- service-request upload folder only (the app writes to
+-- `service_requests/client_uploads/...`). Reads stay public via receipts_auth_read.
+drop policy if exists owners_app_request_uploads on storage.objects;
+create policy owners_app_request_uploads on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] = 'service_requests'
+  );
+
 -- NOTE: the set_document RPC is SECURITY INVOKER, so these policies also govern
 -- writes made through it (owners app password updates / service requests).
 -- The full ERP admin still has full access via the workspace_members policy.

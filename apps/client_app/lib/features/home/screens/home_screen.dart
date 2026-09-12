@@ -307,7 +307,7 @@ class _WelcomeCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            villaNumber.isEmpty ? title : '$title - $villaNumber',
+            villaNumber.isEmpty ? title : '$title • فيلا $villaNumber',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.78),
                 ),
@@ -340,13 +340,6 @@ class _WelcomeCard extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.84),
                 ),
           ),
         ],

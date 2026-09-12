@@ -329,6 +329,21 @@ final ownerTransactionsProvider =
   return ref.watch(ownerAccountRepositoryProvider).fetchTransactions(account.id);
 });
 
+/// Realtime signal that the owner's precomputed statement changed. The balance
+/// comes from the statement, so screens invalidate [ownerAccountProvider] when
+/// this fires (the ERP rebuilds the statement ~1.5s after a transaction).
+final ownerStatementSignalProvider = StreamProvider<void>((ref) {
+  final villa = ref.watch(currentVillaProvider);
+  if (villa == null ||
+      !villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
+    return const Stream.empty();
+  }
+  final ownerId = int.tryParse(
+      villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+  if (ownerId == null) return const Stream.empty();
+  return ref.watch(ownerAccountRepositoryProvider).watchStatements(ownerId);
+});
+
 /// Real-time stream of owner transactions — used to detect new entries and
 /// show push notifications while the app is in the foreground.
 final ownerTransactionsStreamProvider =

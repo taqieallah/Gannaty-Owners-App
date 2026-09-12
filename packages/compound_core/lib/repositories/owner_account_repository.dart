@@ -232,6 +232,13 @@ class OwnerAccountRepository {
     return entries;
   }
 
+  /// Realtime signal that the owner's precomputed statement changed. The
+  /// balance is authoritative from the statement (rebuilt by the ERP ~1.5s
+  /// after a transaction), so the UI must refresh when it updates, not only
+  /// when a raw transaction arrives.
+  Stream<void> watchStatements(int ownerId) =>
+      _db.watchWhere(_statements, 'OwnerId', ownerId).map((_) {});
+
   /// Real-time stream of all transactions for an owner, newest first.
   ///
   /// Scoped server-side by OwnerId so the client never downloads the whole

@@ -16,8 +16,12 @@ class HomeScreen extends ConsumerWidget {
     final villa = ref.watch(currentVillaProvider);
     final accountAsync = ref.watch(ownerAccountProvider);
     final requests = ref.watch(serviceRequestsProvider);
-    // Refresh the balance hero live when a new transaction arrives (realtime).
+    // Refresh the balance hero live: on a new transaction and when the ERP
+    // rebuilds the statement (the authoritative balance source).
     ref.listen(ownerTransactionsStreamProvider, (prev, next) {
+      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+    });
+    ref.listen(ownerStatementSignalProvider, (prev, next) {
       if (next.hasValue) ref.invalidate(ownerAccountProvider);
     });
     final settings = ref.watch(appSettingsProvider).value ??

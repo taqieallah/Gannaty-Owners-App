@@ -24,6 +24,9 @@ class BalanceScreen extends ConsumerWidget {
     ref.listen(ownerTransactionsStreamProvider, (prev, next) {
       if (next.hasValue) ref.invalidate(ownerAccountProvider);
     });
+    ref.listen(ownerStatementSignalProvider, (prev, next) {
+      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+    });
     // Default the selected year to the newest year that actually has a
     // published statement (avoids landing on a year with no data).
     ref.listen(ownerStatementYearsProvider, (prev, next) {

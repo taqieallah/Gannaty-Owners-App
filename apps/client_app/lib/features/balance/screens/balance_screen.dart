@@ -79,7 +79,13 @@ class BalanceScreen extends ConsumerWidget {
           final isCredit = account.isCredit;
           final balanceAbs = account.balance.abs();
 
-          return ListView(
+          return RefreshIndicator(
+            color: AppTheme.cognac,
+            onRefresh: () async {
+              ref.invalidate(ownerAccountProvider);
+              await Future<void>.delayed(const Duration(milliseconds: 500));
+            },
+            child: ListView(
             children: [
               // ── Year selector ───────────────────────────────────────────
               ref.watch(ownerStatementYearsProvider).maybeWhen(
@@ -379,6 +385,7 @@ class BalanceScreen extends ConsumerWidget {
                     ),
               ),
             ],
+            ),
           );
         },
       ),

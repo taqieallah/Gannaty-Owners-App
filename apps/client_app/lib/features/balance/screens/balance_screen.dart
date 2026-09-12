@@ -136,12 +136,12 @@ class BalanceScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isCredit
-                        ? [const Color(0xFF1A5C2D), AppTheme.success]
-                        : [const Color(0xFF5C2D1A), AppTheme.cognac],
+                        ? [const Color(0xFF0E3D2A), AppTheme.success]
+                        : [AppTheme.heroTop, AppTheme.heroBottom],
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                   ),
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

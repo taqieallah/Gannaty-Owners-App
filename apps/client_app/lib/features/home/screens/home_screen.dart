@@ -294,11 +294,11 @@ class _WelcomeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
           colors: isCredit
-              ? [const Color(0xFF1A5C2D), AppTheme.success]
-              : [const Color(0xFF5C2D1A), AppTheme.cognac],
+              ? [const Color(0xFF0E3D2A), AppTheme.success]
+              : [AppTheme.heroTop, AppTheme.heroBottom],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),

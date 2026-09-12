@@ -7,6 +7,17 @@ import '../../../core/settings/app_text.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
 import '../providers/notification_history_provider.dart';
 
+String _bucketOf(DateTime d) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(d.year, d.month, d.day);
+  final diff = today.difference(day).inDays;
+  if (diff <= 0) return 'اليوم';
+  if (diff == 1) return 'أمس';
+  if (diff < 7) return 'هذا الأسبوع';
+  return 'أقدم';
+}
+
 class NotificationHistoryScreen extends ConsumerWidget {
   const NotificationHistoryScreen({super.key});
 
@@ -52,14 +63,31 @@ class NotificationHistoryScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.separated(
-            itemCount: entries.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return _NotificationTile(entry: entry);
-            },
-          );
+          final children = <Widget>[];
+          String? current;
+          for (final entry in entries) {
+            final b = _bucketOf(entry.receivedAt);
+            if (b != current) {
+              current = b;
+              children.add(Padding(
+                padding: EdgeInsets.only(
+                    top: children.isEmpty ? 4 : 18, bottom: 8, right: 4),
+                child: Text(
+                  b,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.3,
+                      ),
+                ),
+              ));
+            }
+            children.add(Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _NotificationTile(entry: entry),
+            ));
+          }
+          return ListView(children: children);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const SizedBox.shrink(),

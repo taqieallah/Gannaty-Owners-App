@@ -16,6 +16,10 @@ class HomeScreen extends ConsumerWidget {
     final villa = ref.watch(currentVillaProvider);
     final accountAsync = ref.watch(ownerAccountProvider);
     final requests = ref.watch(serviceRequestsProvider);
+    // Refresh the balance hero live when a new transaction arrives (realtime).
+    ref.listen(ownerTransactionsStreamProvider, (prev, next) {
+      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+    });
     final settings = ref.watch(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final t = AppText(settings);

@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:compound_core/compound_core.dart';
-
-import '../../../core/design/app_colors.dart';
-import '../../../core/design/app_spacing.dart';
-import '../../../core/design/app_type.dart';
 import '../../../core/providers/app_providers.dart';
-import '../../notifications/providers/notification_history_provider.dart';
-import '../../../shared/widgets/ui.dart';
-import '../../../shared/widgets/date_ar.dart';
+import '../../../core/settings/app_settings.dart';
+import '../../../core/settings/app_text.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/client_page_scaffold.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -19,164 +15,290 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final villa = ref.watch(currentVillaProvider);
     final accountAsync = ref.watch(ownerAccountProvider);
-    final requests = ref.watch(serviceRequestsProvider).asData?.value ?? const [];
-    final announcements =
-        ref.watch(announcementsProvider).asData?.value ?? const [];
-    final txs =
-        ref.watch(ownerTransactionsStreamProvider).asData?.value ?? const [];
+    final requests = ref.watch(serviceRequestsProvider);
+    // Refresh the balance hero live: on a new transaction and when the ERP
+    // rebuilds the statement (the authoritative balance source).
+    ref.listen(ownerTransactionsStreamProvider, (prev, next) {
+      if (next.hasValue) {
+        ref.invalidate(ownerAccountProvider);
+        // The ERP rebuilds the statement (the authoritative balance) ~1.5s
+        // later; refetch again to catch it even if the UPDATE realtime event
+        // isn't delivered.
+        Future.delayed(const Duration(seconds: 4), () {
+          try {
+            ref.invalidate(ownerAccountProvider);
+          } catch (_) {/* screen gone */}
+        });
+      }
+    });
+    ref.listen(ownerStatementSignalProvider, (prev, next) {
+      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+    });
+    final settings = ref.watch(appSettingsProvider).value ??
+        const AppSettings(themeMode: ThemeMode.light, isArabic: true);
+    final t = AppText(settings);
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: ContentBound(
-          child: RefreshIndicator(
-            color: AppColors.copper,
-            onRefresh: () async {
-              ref.invalidate(ownerAccountProvider);
-              await Future<void>.delayed(const Duration(milliseconds: 400));
-            },
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, 90),
-              children: [
-                _Header(villa: villa),
-                Gap.h20,
-                accountAsync.when(
-                  loading: () => const _BalanceSkeleton(),
-                  error: (_, __) => _BalanceCard(account: null),
-                  data: (a) => _BalanceCard(account: a),
-                ),
-                Gap.h12,
-                _Kpis(account: accountAsync.asData?.value, requests: requests),
-                Gap.h20,
-                const _QuickActions(),
-                Gap.h24,
-                _Maintenance(requests: requests),
-                Gap.h24,
-                _Announcements(items: announcements),
-                Gap.h24,
-                _Activity(txs: txs),
-              ],
+    return ClientPageScaffold(
+      title: t.home,
+      body: ListView(
+        children: [
+          // ── Welcome / balance hero ──────────────────────────────────────
+          accountAsync.when(
+            data: (account) => _WelcomeCard(
+              title: t.gannatyCompound,
+              welcome: t.welcome,
+              balanceLabel: t.balance,
+              subtitle: t.homeHeroSubtitle,
+              villaName: villa?.ownerName ?? '',
+              villaNumber: account?.villaNo ?? villa?.villaNumber ?? '',
+              balance: account?.balance ?? 0,
+              isCredit: account?.isCredit ?? false,
+            ),
+            loading: () => _WelcomeCard(
+              title: t.gannatyCompound,
+              welcome: t.welcome,
+              balanceLabel: t.balance,
+              subtitle: t.homeHeroSubtitle,
+              villaName: villa?.ownerName ?? '',
+              villaNumber: villa?.villaNumber ?? '',
+              balance: 0,
+              isCredit: false,
+            ),
+            error: (_, __) => _WelcomeCard(
+              title: t.gannatyCompound,
+              welcome: t.welcome,
+              balanceLabel: t.balance,
+              subtitle: t.homeHeroSubtitle,
+              villaName: villa?.ownerName ?? '',
+              villaNumber: villa?.villaNumber ?? '',
+              balance: 0,
+              isCredit: false,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
+          const SizedBox(height: 16),
 
-// ── Header ──────────────────────────────────────────────────────────────────
-class _Header extends ConsumerWidget {
-  const _Header({required this.villa});
-  final Villa? villa;
+          // ── Year selector ───────────────────────────────────────────────
+          ref.watch(ownerStatementYearsProvider).maybeWhen(
+                data: (years) {
+                  if (years.isEmpty) return const SizedBox.shrink();
+                  final sel = ref.watch(selectedOwnerYearProvider);
+                  final items = years.contains(sel)
+                      ? years
+                      : [sel, ...years]
+                    ..sort((a, b) => b.compareTo(a));
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month_rounded,
+                            size: 20, color: AppTheme.cognac),
+                        const SizedBox(width: 10),
+                        Text('${t.forYear}:',
+                            style: Theme.of(context).textTheme.bodyMedium),
+                        const Spacer(),
+                        DropdownButton<int>(
+                          value: sel,
+                          underline: const SizedBox.shrink(),
+                          items: items
+                              .map((y) => DropdownMenuItem<int>(
+                                    value: y,
+                                    child: Text('$y',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w800)),
+                                  ))
+                              .toList(),
+                          onChanged: (y) {
+                            if (y != null) {
+                              ref
+                                  .read(selectedOwnerYearProvider.notifier)
+                                  .set(y);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = Theme.of(context).textTheme;
-    final unread =
-        ref.watch(notificationHistoryProvider).asData?.value.length ?? 0;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('مرحباً،',
-                  style: t.bodyMedium?.copyWith(color: AppColors.inkSoft)),
-              Gap.h4,
-              Text(villa?.ownerName ?? 'عزيزي المالك',
-                  style: t.titleLarge?.copyWith(fontSize: 20)),
-              Gap.h4,
-              Row(children: [
-                const Icon(Icons.location_city_rounded,
-                    size: 15, color: AppColors.copper),
-                Gap.w4,
-                Text(
-                  'كمبوند جنتي • فيلا ${villa?.villaNumber ?? '—'}',
-                  style: t.bodySmall,
-                ),
-              ]),
-            ],
+          // ── Owner account metric cards ──────────────────────────────────
+          accountAsync.when(
+            data: (account) {
+              final bal = account?.balance ?? 0;
+              final maintenance = account?.maintenance ?? 0;
+              final payments = account?.totalPayments ?? 0;
+              return Row(
+                children: [
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'الصيانة',
+                      value: maintenance.toStringAsFixed(0),
+                      color: AppTheme.cognac,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'المدفوعات',
+                      value: payments.toStringAsFixed(0),
+                      color: AppTheme.success,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _MetricCard(
+                      title: 'الرصيد',
+                      value: bal.abs().toStringAsFixed(0),
+                      color: bal <= 0 ? AppTheme.success : AppTheme.danger,
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => const SizedBox.shrink(),
           ),
-        ),
-        _IconButtonBadge(
-          icon: Icons.notifications_none_rounded,
-          count: unread,
-          onTap: () => context.push('/notifications'),
-        ),
-      ],
-    );
-  }
-}
-
-class _IconButtonBadge extends StatelessWidget {
-  const _IconButtonBadge(
-      {required this.icon, required this.count, required this.onTap});
-  final IconData icon;
-  final int count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: Radii.md,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: Radii.md,
-          border: Border.all(color: cs.outline),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            Icon(icon, size: 22, color: cs.onSurface),
-            if (count > 0)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                      color: AppColors.danger, shape: BoxShape.circle),
-                  constraints:
-                      const BoxConstraints(minWidth: 8, minHeight: 8),
+          const SizedBox(height: 16),
+          requests.when(
+            data: (items) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.requestStatus,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _RequestBadge(
+                          label: t.pending,
+                          count: items.where((e) => e.status.name == 'pending').length,
+                          color: AppTheme.gold,
+                        ),
+                        _RequestBadge(
+                          label: t.inProgress,
+                          count: items
+                              .where((e) => e.status.name == 'inProgress')
+                              .length,
+                          color: AppTheme.cognac,
+                        ),
+                        _RequestBadge(
+                          label: t.solved,
+                          count: items.where((e) => e.status.name == 'solved').length,
+                          color: AppTheme.success,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stackTrace) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.quickActions,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _QuickAction(
+                        icon: Icons.receipt_long_rounded,
+                        label: t.payments,
+                        onTap: () => context.go('/payments'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.add_circle_rounded,
+                        label: t.newRequest,
+                        onTap: () => context.push('/requests/new'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.account_balance_wallet_rounded,
+                        label: t.balance,
+                        onTap: () => context.go('/balance'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.campaign_rounded,
+                        label: t.announcements,
+                        onTap: () => context.go('/announcements'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.notifications_rounded,
+                        label: t.notifications,
+                        onTap: () => context.push('/notifications'),
+                      ),
+                      _QuickAction(
+                        icon: Icons.person_rounded,
+                        label: t.profile,
+                        onTap: () => context.go('/profile'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Balance summary ─────────────────────────────────────────────────────────
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.account});
-  final OwnerAccount? account;
+class _WelcomeCard extends StatelessWidget {
+  const _WelcomeCard({
+    required this.title,
+    required this.welcome,
+    required this.balanceLabel,
+    required this.subtitle,
+    required this.villaName,
+    required this.villaNumber,
+    required this.balance,
+    required this.isCredit,
+  });
+
+  final String title;
+  final String welcome;
+  final String balanceLabel;
+  final String subtitle;
+  final String villaName;
+  final String villaNumber;
+  final double balance;
+  final bool isCredit;
 
   @override
   Widget build(BuildContext context) {
-    final a = account;
-    final credit = a?.isCredit ?? false;
-    final bal = (a?.balance ?? 0).abs();
-    final statusText = a == null
-        ? '—'
-        : credit
-            ? 'رصيد لصالحك'
-            : bal < 0.01
-                ? 'الحساب مسدّد بالكامل'
-                : 'عليه مديونية';
     return Container(
-      padding: const EdgeInsets.all(Gap.xxl),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: Radii.lg,
-        gradient: const LinearGradient(
-          colors: [AppColors.navySoft, AppColors.navyDeep],
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          colors: isCredit
+              ? [const Color(0xFF1A5C2D), AppTheme.success]
+              : [const Color(0xFF5C2D1A), AppTheme.cognac],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
@@ -184,401 +306,158 @@ class _BalanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Text('الرصيد الحالي',
-                style: AppType.eyebrow(Colors.white.withValues(alpha: 0.75))),
-            const Spacer(),
-            _HeroStatus(text: statusText, credit: credit, settled: bal < 0.01),
-          ]),
-          Gap.h12,
-          Row(
-            textBaseline: TextBaseline.alphabetic,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            children: [
-              Text(money(bal), style: AppType.money(Colors.white, size: 34)),
-              Gap.w8,
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('جنيه',
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          Gap.h20,
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.12)),
-          Gap.h16,
-          Row(children: [
-            _HeroStat(
-                label: 'المدفوع هذا العام',
-                value: money(a?.totalPayments ?? 0)),
-            Container(
-                width: 1, height: 30, color: Colors.white.withValues(alpha: 0.12)),
-            _HeroStat(label: 'إجمالي الرسوم', value: money(a?.totalCharges ?? 0)),
-          ]),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroStatus extends StatelessWidget {
-  const _HeroStatus(
-      {required this.text, required this.credit, required this.settled});
-  final String text;
-  final bool credit;
-  final bool settled;
-  @override
-  Widget build(BuildContext context) {
-    final color = settled || credit ? AppColors.success : AppColors.copperSoft;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18), borderRadius: Radii.pill),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        Gap.w4,
-        Text(text,
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700)),
-      ]),
-    );
-  }
-}
-
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.label, required this.value});
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65), fontSize: 11.5)),
-          Gap.h4,
-          Text('$value جنيه',
-              style: AppType.num(Colors.white, size: 14.5)),
-        ],
-      ),
-    );
-  }
-}
-
-class _BalanceSkeleton extends StatelessWidget {
-  const _BalanceSkeleton();
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 180,
-        decoration: BoxDecoration(
-            borderRadius: Radii.lg, color: AppColors.navyDeep),
-        alignment: Alignment.center,
-        child: const CircularProgressIndicator(
-            strokeWidth: 2.4, color: Colors.white54),
-      );
-}
-
-// ── KPIs ────────────────────────────────────────────────────────────────────
-class _Kpis extends StatelessWidget {
-  const _Kpis({required this.account, required this.requests});
-  final OwnerAccount? account;
-  final List<ServiceRequest> requests;
-  @override
-  Widget build(BuildContext context) {
-    final open = requests
-        .where((r) => r.status != ServiceRequestStatus.solved)
-        .length;
-    return Row(children: [
-      Expanded(
-        child: StatCard(
-          label: 'المدفوع هذا العام',
-          value: '${money(account?.totalPayments ?? 0)} جنيه',
-          icon: Icons.trending_up_rounded,
-          tone: BadgeTone.success,
-          valueColor: AppColors.success,
-        ),
-      ),
-      Gap.w12,
-      Expanded(
-        child: StatCard(
-          label: 'طلبات الصيانة',
-          value: '${requests.length}',
-          icon: Icons.build_rounded,
-          tone: BadgeTone.copper,
-          onTap: () => context.go('/requests'),
-        ),
-      ),
-      Gap.w12,
-      Expanded(
-        child: StatCard(
-          label: 'طلبات مفتوحة',
-          value: '$open',
-          icon: Icons.pending_actions_rounded,
-          tone: BadgeTone.amber,
-          onTap: () => context.go('/requests'),
-        ),
-      ),
-    ]);
-  }
-}
-
-// ── Quick actions ───────────────────────────────────────────────────────────
-class _QuickActions extends StatelessWidget {
-  const _QuickActions();
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(
-          child: QuickAction(
-              icon: Icons.receipt_long_rounded,
-              label: 'كشف الحساب',
-              onTap: () => context.go('/balance'))),
-      Gap.w12,
-      Expanded(
-          child: QuickAction(
-              icon: Icons.add_circle_outline_rounded,
-              label: 'طلب صيانة',
-              onTap: () => context.push('/requests/new'))),
-      Gap.w12,
-      Expanded(
-          child: QuickAction(
-              icon: Icons.build_rounded,
-              label: 'طلباتي',
-              onTap: () => context.go('/requests'))),
-      Gap.w12,
-      Expanded(
-          child: QuickAction(
-              icon: Icons.campaign_rounded,
-              label: 'الإعلانات',
-              onTap: () => context.go('/announcements'))),
-    ]);
-  }
-}
-
-// ── Maintenance ─────────────────────────────────────────────────────────────
-(String, BadgeTone) requestStatusView(ServiceRequestStatus s) => switch (s) {
-      ServiceRequestStatus.pending => (s.label, BadgeTone.amber),
-      ServiceRequestStatus.inProgress => (s.label, BadgeTone.info),
-      ServiceRequestStatus.solved => (s.label, BadgeTone.success),
-    };
-
-class _Maintenance extends StatelessWidget {
-  const _Maintenance({required this.requests});
-  final List<ServiceRequest> requests;
-  @override
-  Widget build(BuildContext context) {
-    final active = requests
-        .where((r) => r.status != ServiceRequestStatus.solved)
-        .toList();
-    final show = (active.isEmpty ? requests : active).take(2).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader('طلبات الصيانة',
-            actionLabel: requests.isEmpty ? null : 'عرض الكل',
-            onAction: () => context.go('/requests')),
-        if (show.isEmpty)
-          AppCard(
-            child: Row(children: [
-              const Icon(Icons.handyman_outlined,
-                  color: AppColors.inkSoft, size: 22),
-              Gap.w12,
-              const Expanded(
-                  child: Text('لا توجد طلبات صيانة حالياً',
-                      style: TextStyle(color: AppColors.inkSoft))),
-              TextButton(
-                  onPressed: () => context.push('/requests/new'),
-                  child: const Text('طلب جديد')),
-            ]),
-          )
-        else
-          ...show.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: Gap.md),
-                child: _RequestRow(r: r),
-              )),
-      ],
-    );
-  }
-}
-
-class _RequestRow extends StatelessWidget {
-  const _RequestRow({required this.r});
-  final ServiceRequest r;
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final (label, tone) = requestStatusView(r.status);
-    return AppCard(
-      onTap: () => context.push('/requests/${r.id}'),
-      child: Row(children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: const BoxDecoration(
-              color: AppColors.copperTint, borderRadius: Radii.sm),
-          child: const Icon(Icons.build_rounded,
-              color: AppColors.copper, size: 20),
-        ),
-        Gap.w12,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(r.type.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              Gap.h4,
-              Text(arDate(r.createdAt), style: t.bodySmall),
-            ],
-          ),
-        ),
-        Gap.w8,
-        StatusBadge(label, tone: tone),
-      ]),
-    );
-  }
-}
-
-// ── Announcements ───────────────────────────────────────────────────────────
-class _Announcements extends StatelessWidget {
-  const _Announcements({required this.items});
-  final List<Announcement> items;
-  @override
-  Widget build(BuildContext context) {
-    final show = items.take(2).toList();
-    if (show.isEmpty) return const SizedBox.shrink();
-    final t = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader('آخر الإعلانات',
-            actionLabel: 'عرض الكل', onAction: () => context.go('/announcements')),
-        ...show.map((a) => Padding(
-              padding: const EdgeInsets.only(bottom: Gap.md),
-              child: AppCard(
-                onTap: () => context.go('/announcements'),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: const BoxDecoration(
-                          color: AppColors.infoTint, borderRadius: Radii.sm),
-                      child: const Icon(Icons.campaign_rounded,
-                          color: AppColors.info, size: 20),
-                    ),
-                    Gap.w12,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(a.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: t.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700)),
-                          Gap.h4,
-                          Text(a.body,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: t.bodySmall),
-                          Gap.h8,
-                          Text(arDate(a.createdAt),
-                              style: t.labelSmall
-                                  ?.copyWith(color: AppColors.muted)),
-                        ],
-                      ),
-                    ),
-                  ],
+          Text(
+            villaNumber.isEmpty ? title : '$title - $villaNumber',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.78),
                 ),
-              ),
-            )),
-      ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            balanceLabel,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.86),
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${balance.abs().toStringAsFixed(0)} EGP',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          Text(
+            isCredit ? 'دائن ✓' : (balance == 0 ? 'مسوّى' : 'مدين'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.80),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            villaName.isEmpty ? welcome : '$welcome $villaName',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.84),
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Recent activity ─────────────────────────────────────────────────────────
-class _Activity extends StatelessWidget {
-  const _Activity({required this.txs});
-  final List<OwnerLedgerEntry> txs;
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.title,
+    required this.value,
+    required this.color,
+  });
+
+  final String title;
+  final String value;
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
-    final show = txs.take(4).toList();
-    if (show.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader('آخر النشاطات',
-            actionLabel: 'كشف الحساب', onAction: () => context.go('/balance')),
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (var i = 0; i < show.length; i++) ...[
-                if (i > 0)
-                  const Divider(height: 1, indent: 68, endIndent: 16),
-                _ActivityRow(e: show[i]),
-              ],
-            ],
-          ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        child: Column(
+          children: [
+            Text(title, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.e});
-  final OwnerLedgerEntry e;
+class _RequestBadge extends StatelessWidget {
+  const _RequestBadge({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final pay = e.isPayment;
-    final color = pay ? AppColors.success : AppColors.danger;
-    final tint = pay ? AppColors.successTint : AppColors.dangerTint;
-    return Padding(
-      padding: const EdgeInsets.all(Gap.lg),
-      child: Row(children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: tint, borderRadius: Radii.sm),
-          child: Icon(
-              pay ? Icons.south_west_rounded : Icons.north_east_rounded,
-              color: color,
-              size: 19),
-        ),
-        Gap.w12,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(pay ? 'دفعة' : (e.category ?? 'رسوم'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              Gap.h4,
-              Text(arDateStr(e.txDate), style: t.bodySmall),
-            ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(color: color, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        width: 132,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
-        Gap.w8,
-        Text('${pay ? '+' : '−'}${money(e.amount)}',
-            style: AppType.num(color, size: 15, weight: FontWeight.w800)),
-      ]),
+        child: Column(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 8),
+            Text(label, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
     );
   }
 }

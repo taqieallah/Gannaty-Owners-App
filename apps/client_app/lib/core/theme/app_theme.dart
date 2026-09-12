@@ -1,181 +1,183 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../design/app_colors.dart';
-import '../design/app_spacing.dart';
-import '../design/app_type.dart';
-
-/// The Gannaty owner-app theme: deep navy brand, warm copper accent, calm warm
-/// off-white surfaces, IBM Plex Sans Arabic. Legacy constant names are kept as
-/// aliases so screens compile while they are migrated to [AppColors].
 class AppTheme {
   AppTheme._();
 
-  // ── Legacy aliases (repointed to the new brand) ──────────────────────────
-  static const Color cognac = AppColors.copper; // accent
-  static const Color gold = AppColors.copper;
-  static const Color espresso = AppColors.copperSoft;
-  static const Color ivory = AppColors.bg;
-  static const Color mist = AppColors.surface;
-  static const Color sand = AppColors.surfaceAlt;
-  static const Color text = AppColors.ink;
-  static const Color textSoft = AppColors.inkSoft;
-  static const Color muted = AppColors.muted;
-  static const Color outline = AppColors.line;
-  static const Color outlineSoft = AppColors.lineSoft;
-  static const Color success = AppColors.success;
-  static const Color danger = AppColors.danger;
-  static const Color warning = AppColors.amber;
-  static const Color info = AppColors.info;
-  static const Color heroTop = AppColors.navySoft;
-  static const Color heroBottom = AppColors.navyDeep;
+  static const Color cognac = Color(0xFF7A4726);
+  static const Color espresso = Color(0xFF1A0F08);
+  static const Color ivory = Color(0xFFF7F1E3);
+  static const Color sand = Color(0xFFF3E7D6);
+  static const Color mist = Color(0xFFFDFBF7);
+  static const Color gold = Color(0xFFC29040);
+  static const Color danger = Color(0xFFC64040);
+  static const Color success = Color(0xFF168267);
+  static const Color text = Color(0xFF3A2416);
+  static const Color textSoft = Color(0xFF8A6B55);
 
-  static ThemeData get light => _build(Brightness.light);
-  static ThemeData get dark => _build(Brightness.dark);
-
-  static ThemeData _build(Brightness b) {
-    final dark = b == Brightness.dark;
-    final bg = dark ? AppColors.dBg : AppColors.bg;
-    final surface = dark ? AppColors.dSurface : AppColors.surface;
-    final fill = dark ? AppColors.dSurfaceAlt : AppColors.surfaceAlt;
-    final ink = dark ? AppColors.dInk : AppColors.ink;
-    final inkSoft = dark ? AppColors.dInkSoft : AppColors.inkSoft;
-    final line = dark ? AppColors.dLine : AppColors.line;
-    final lineSoft = dark ? AppColors.dLine : AppColors.lineSoft;
-    final accent = dark ? AppColors.dCopper : AppColors.copper;
-    final primary = dark ? AppColors.dInk : AppColors.navy;
-
-    final scheme = ColorScheme(
-      brightness: b,
-      primary: primary,
-      onPrimary: dark ? AppColors.navyDeep : Colors.white,
-      secondary: accent,
-      onSecondary: Colors.white,
-      surface: surface,
-      onSurface: ink,
-      onSurfaceVariant: inkSoft,
-      error: AppColors.danger,
-      onError: Colors.white,
-      outline: line,
-      outlineVariant: lineSoft,
-      tertiary: accent,
+  static ThemeData get light {
+    final textTheme = GoogleFonts.cairoTextTheme();
+    final scheme = ColorScheme.fromSeed(
+      seedColor: cognac,
+      brightness: Brightness.light,
+      primary: cognac,
+      secondary: gold,
+      surface: mist,
+      error: danger,
     );
-    final textTheme = AppType.textTheme(b);
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: bg,
-      textTheme: textTheme,
-      splashFactory: InkSparkle.splashFactory,
+      scaffoldBackgroundColor: ivory,
+      textTheme: textTheme.apply(
+        bodyColor: text,
+        displayColor: text,
+      ),
       appBarTheme: AppBarTheme(
-        backgroundColor: bg,
-        foregroundColor: ink,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: ivory,
+        foregroundColor: text,
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shadowColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.ibmPlexSansArabic(
-            color: ink, fontSize: 18, fontWeight: FontWeight.w700),
-        iconTheme: IconThemeData(color: ink),
+        titleTextStyle: GoogleFonts.cairo(
+          color: text,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       cardTheme: CardThemeData(
-        color: surface,
+        color: mist,
         elevation: 0,
         margin: EdgeInsets.zero,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-            borderRadius: Radii.md, side: BorderSide(color: line)),
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: cognac.withValues(alpha: 0.12)),
+        ),
       ),
-      dividerTheme: DividerThemeData(color: lineSoft, thickness: 1, space: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: fill,
+        fillColor: mist,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-            borderRadius: Radii.sm, borderSide: BorderSide(color: line)),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: cognac.withValues(alpha: 0.16)),
+        ),
         enabledBorder: OutlineInputBorder(
-            borderRadius: Radii.sm, borderSide: BorderSide(color: line)),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: cognac.withValues(alpha: 0.16)),
+        ),
         focusedBorder: OutlineInputBorder(
-            borderRadius: Radii.sm,
-            borderSide: BorderSide(color: accent, width: 1.5)),
-        labelStyle: TextStyle(color: inkSoft),
-        hintStyle: TextStyle(color: AppColors.muted),
-        prefixIconColor: inkSoft,
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: accent,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(0, 52),
-          elevation: 0,
-          textStyle: GoogleFonts.ibmPlexSansArabic(
-              fontSize: 15, fontWeight: FontWeight.w700),
-          shape: const RoundedRectangleBorder(borderRadius: Radii.md),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: cognac, width: 1.5),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: accent,
+          backgroundColor: cognac,
           foregroundColor: Colors.white,
-          minimumSize: const Size(0, 52),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          textStyle: GoogleFonts.ibmPlexSansArabic(
-              fontSize: 15, fontWeight: FontWeight.w700),
-          shape: const RoundedRectangleBorder(borderRadius: Radii.md),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: primary,
-          minimumSize: const Size(0, 50),
-          side: BorderSide(color: line),
-          textStyle: GoogleFonts.ibmPlexSansArabic(
-              fontSize: 15, fontWeight: FontWeight.w700),
-          shape: const RoundedRectangleBorder(borderRadius: Radii.md),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: accent,
-          textStyle: GoogleFonts.ibmPlexSansArabic(fontWeight: FontWeight.w700),
+          minimumSize: const Size(double.infinity, 52),
+          textStyle: GoogleFonts.cairo(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: fill,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.pill),
-        side: BorderSide(color: lineSoft),
-        labelStyle: GoogleFonts.ibmPlexSansArabic(fontWeight: FontWeight.w600),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        side: BorderSide.none,
+        labelStyle: GoogleFonts.cairo(fontWeight: FontWeight.w700),
       ),
-      iconTheme: IconThemeData(color: inkSoft),
-      listTileTheme: ListTileThemeData(
-        iconColor: inkSoft,
-        titleTextStyle: textTheme.titleSmall,
-        subtitleTextStyle: textTheme.bodySmall,
+      iconTheme: const IconThemeData(color: cognac),
+    );
+  }
+
+  static ThemeData get dark {
+    final textTheme = GoogleFonts.cairoTextTheme(
+      ThemeData.dark().textTheme,
+    );
+    final scheme = ColorScheme.fromSeed(
+      seedColor: cognac,
+      brightness: Brightness.dark,
+      primary: const Color(0xFFD5A26C),
+      secondary: gold,
+      surface: const Color(0xFF22160F),
+      error: const Color(0xFFFF8C8C),
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: const Color(0xFF140D09),
+      textTheme: textTheme.apply(
+        bodyColor: const Color(0xFFF7EBDC),
+        displayColor: const Color(0xFFF7EBDC),
       ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: surface,
-        surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.lg),
+      appBarTheme: AppBarTheme(
+        backgroundColor: const Color(0xFF140D09),
+        foregroundColor: const Color(0xFFF7EBDC),
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleTextStyle: GoogleFonts.cairo(
+          color: const Color(0xFFF7EBDC),
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
       ),
-      bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: surface,
-        surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.vertical(top: Radius.circular(24))),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF22160F),
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
       ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.navy,
-        contentTextStyle: GoogleFonts.ibmPlexSansArabic(color: Colors.white),
-        behavior: SnackBarBehavior.floating,
-        shape: const RoundedRectangleBorder(borderRadius: Radii.md),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF22160F),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFD5A26C), width: 1.5),
+        ),
       ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cognac,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 52),
+          textStyle: GoogleFonts.cairo(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        side: BorderSide.none,
+        labelStyle: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+      ),
+      iconTheme: const IconThemeData(color: Color(0xFFD5A26C)),
     );
   }
 }

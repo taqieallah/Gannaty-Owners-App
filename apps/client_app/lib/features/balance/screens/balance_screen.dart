@@ -9,6 +9,7 @@ import '../../../core/settings/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
 import '../../../shared/widgets/owner_receipt_sheet.dart';
+import '../statement_pdf.dart';
 
 class BalanceScreen extends ConsumerWidget {
   const BalanceScreen({super.key});
@@ -52,8 +53,22 @@ class BalanceScreen extends ConsumerWidget {
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final t = AppText(settings);
 
+    final account = accountAsync.asData?.value;
+    final entries = txAsync.asData?.value ?? const <OwnerLedgerEntry>[];
+    final canExport = account?.statement != null;
+
     return ClientPageScaffold(
       title: t.ownerAccountTitle,
+      actions: [
+        IconButton(
+          tooltip: 'تحميل كشف الحساب PDF',
+          icon: const Icon(Icons.download_rounded),
+          onPressed: canExport
+              ? () => shareStatementPdf(
+                  account: account!, transactions: entries)
+              : null,
+        ),
+      ],
       body: accountAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _ErrorState(message: e.toString()),

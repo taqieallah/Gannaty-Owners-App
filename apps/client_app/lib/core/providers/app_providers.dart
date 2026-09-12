@@ -308,7 +308,13 @@ final ownerStatementYearsProvider = FutureProvider<List<int>>((ref) async {
 });
 
 /// Owner account with the precomputed balance for the selected year.
+///
+/// Rebuilds automatically whenever the owner's transactions or precomputed
+/// statement change over realtime, so the balance stays live on every screen
+/// (not only the one that happens to be mounted).
 final ownerAccountProvider = FutureProvider<OwnerAccount?>((ref) async {
+  ref.watch(ownerTransactionsStreamProvider);
+  ref.watch(ownerStatementSignalProvider);
   final villa = ref.watch(currentVillaProvider);
   if (villa == null) return null;
   final year = ref.watch(selectedOwnerYearProvider);

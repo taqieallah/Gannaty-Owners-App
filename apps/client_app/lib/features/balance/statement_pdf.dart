@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:compound_core/compound_core.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -43,6 +44,14 @@ Future<Uint8List> _build(
     theme: pw.ThemeData.withFont(base: regular, bold: bold),
   );
 
+  pw.MemoryImage? logo;
+  try {
+    logo = pw.MemoryImage(
+        (await rootBundle.load('assets/images/gannaty_icon.png'))
+            .buffer
+            .asUint8List());
+  } catch (_) {/* logo optional */}
+
   final year = account.year;
   final entries = transactions
       .where((e) => e.txDate.startsWith('$year'))
@@ -59,7 +68,8 @@ Future<Uint8List> _build(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 28),
       textDirection: pw.TextDirection.rtl,
-      header: (ctx) => ctx.pageNumber == 1 ? _header(account) : pw.SizedBox(),
+      header: (ctx) =>
+          ctx.pageNumber == 1 ? _header(account, logo) : pw.SizedBox(),
       footer: (ctx) => pw.Container(
         alignment: pw.Alignment.center,
         margin: const pw.EdgeInsets.only(top: 8),
@@ -87,10 +97,10 @@ Future<Uint8List> _build(
   return doc.save();
 }
 
-pw.Widget _header(OwnerAccount account) {
+pw.Widget _header(OwnerAccount account, pw.MemoryImage? logo) {
   return pw.Column(children: [
     pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
@@ -101,19 +111,21 @@ pw.Widget _header(OwnerAccount account) {
           pw.Text('اتحاد شاغلي كمبوند جنتي',
               style: const pw.TextStyle(fontSize: 10, color: _soft)),
         ]),
-        pw.Container(
-          width: 46,
-          height: 46,
-          decoration: pw.BoxDecoration(
-              color: _copper,
-              borderRadius: pw.BorderRadius.circular(10)),
-          alignment: pw.Alignment.center,
-          child: pw.Text('جنتي',
-              style: pw.TextStyle(
-                  color: PdfColors.white,
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold)),
-        ),
+        if (logo != null)
+          pw.Image(logo, width: 52, height: 52)
+        else
+          pw.Container(
+            width: 46,
+            height: 46,
+            decoration: pw.BoxDecoration(
+                color: _copper, borderRadius: pw.BorderRadius.circular(10)),
+            alignment: pw.Alignment.center,
+            child: pw.Text('جنتي',
+                style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold)),
+          ),
       ],
     ),
     pw.SizedBox(height: 12),

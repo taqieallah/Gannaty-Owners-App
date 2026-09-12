@@ -1,142 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Owner-app theme aligned with the ERP's "gold" identity: a warm amber accent,
-/// cool off-white surfaces, flat white bordered cards, navy text and Cairo type.
-/// Constant names are kept for backwards compatibility; only the values moved.
+import '../design/app_colors.dart';
+import '../design/app_spacing.dart';
+import '../design/app_type.dart';
+
+/// The Gannaty owner-app theme: deep navy brand, warm copper accent, calm warm
+/// off-white surfaces, IBM Plex Sans Arabic. Legacy constant names are kept as
+/// aliases so screens compile while they are migrated to [AppColors].
 class AppTheme {
   AppTheme._();
 
-  // ── Brand / accent ──────────────────────────────────────────────────────
-  static const Color cognac = Color(0xFFB45309); // primary accent (ERP gold)
-  static const Color gold = Color(0xFFB45309);
-  static const Color espresso = Color(0xFF7A3D06); // deep amber (accents)
+  // ── Legacy aliases (repointed to the new brand) ──────────────────────────
+  static const Color cognac = AppColors.copper; // accent
+  static const Color gold = AppColors.copper;
+  static const Color espresso = AppColors.copperSoft;
+  static const Color ivory = AppColors.bg;
+  static const Color mist = AppColors.surface;
+  static const Color sand = AppColors.surfaceAlt;
+  static const Color text = AppColors.ink;
+  static const Color textSoft = AppColors.inkSoft;
+  static const Color muted = AppColors.muted;
+  static const Color outline = AppColors.line;
+  static const Color outlineSoft = AppColors.lineSoft;
+  static const Color success = AppColors.success;
+  static const Color danger = AppColors.danger;
+  static const Color warning = AppColors.amber;
+  static const Color info = AppColors.info;
+  static const Color heroTop = AppColors.navySoft;
+  static const Color heroBottom = AppColors.navyDeep;
 
-  // ── Surfaces ────────────────────────────────────────────────────────────
-  static const Color ivory = Color(0xFFF6F7FA); // scaffold background
-  static const Color mist = Color(0xFFFFFFFF); // cards / surface
-  static const Color sand = Color(0xFFF1F3F7); // surfaceLow / fills
-  static const Color surfaceHigh = Color(0xFFE8ECF3);
+  static ThemeData get light => _build(Brightness.light);
+  static ThemeData get dark => _build(Brightness.dark);
 
-  // ── Ink ─────────────────────────────────────────────────────────────────
-  static const Color text = Color(0xFF0F1729); // primary text (navy)
-  static const Color textSoft = Color(0xFF5B6675); // secondary text
-  static const Color muted = Color(0xFF8A93A3);
+  static ThemeData _build(Brightness b) {
+    final dark = b == Brightness.dark;
+    final bg = dark ? AppColors.dBg : AppColors.bg;
+    final surface = dark ? AppColors.dSurface : AppColors.surface;
+    final fill = dark ? AppColors.dSurfaceAlt : AppColors.surfaceAlt;
+    final ink = dark ? AppColors.dInk : AppColors.ink;
+    final inkSoft = dark ? AppColors.dInkSoft : AppColors.inkSoft;
+    final line = dark ? AppColors.dLine : AppColors.line;
+    final lineSoft = dark ? AppColors.dLine : AppColors.lineSoft;
+    final accent = dark ? AppColors.dCopper : AppColors.copper;
+    final primary = dark ? AppColors.dInk : AppColors.navy;
 
-  // ── Lines ───────────────────────────────────────────────────────────────
-  static const Color outline = Color(0xFFDDE2EB);
-  static const Color outlineSoft = Color(0xFFEAEDF3);
-
-  // ── Semantic ────────────────────────────────────────────────────────────
-  static const Color success = Color(0xFF047857);
-  static const Color danger = Color(0xFFB91C1C);
-  static const Color warning = Color(0xFFB45309);
-  static const Color info = Color(0xFF2563EB);
-
-  // Deep navy used for the balance hero (premium, ERP nav tone).
-  static const Color heroTop = Color(0xFF16213A);
-  static const Color heroBottom = Color(0xFF0F1729);
-
-  static const BorderRadius rCard = BorderRadius.all(Radius.circular(14));
-  static const BorderRadius rField = BorderRadius.all(Radius.circular(12));
-  static const BorderRadius rPanel = BorderRadius.all(Radius.circular(18));
-
-  static ThemeData get light {
-    final base = GoogleFonts.cairoTextTheme();
-    final scheme = ColorScheme.fromSeed(
-      seedColor: cognac,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: cognac,
-      onPrimary: Colors.white,
-      secondary: espresso,
-      surface: mist,
-      onSurface: text,
-      onSurfaceVariant: textSoft,
-      error: danger,
-      outline: outline,
-      outlineVariant: outlineSoft,
+    final scheme = ColorScheme(
+      brightness: b,
+      primary: primary,
+      onPrimary: dark ? AppColors.navyDeep : Colors.white,
+      secondary: accent,
+      onSecondary: Colors.white,
+      surface: surface,
+      onSurface: ink,
+      onSurfaceVariant: inkSoft,
+      error: AppColors.danger,
+      onError: Colors.white,
+      outline: line,
+      outlineVariant: lineSoft,
+      tertiary: accent,
     );
-    return _build(
-      scheme: scheme,
-      textTheme: base.apply(bodyColor: text, displayColor: text),
-      scaffold: ivory,
-      surface: mist,
-      fill: sand,
-      onSurface: text,
-      onSurfaceVariant: textSoft,
-      outline: outline,
-      outlineVariant: outlineSoft,
-    );
-  }
+    final textTheme = AppType.textTheme(b);
 
-  static ThemeData get dark {
-    const dText = Color(0xFFE7ECF5);
-    const dTextSoft = Color(0xFF9DA9BC);
-    const dBg = Color(0xFF0B1120);
-    const dSurface = Color(0xFF111827);
-    const dFill = Color(0xFF0E1626);
-    const dOutline = Color(0xFF293449);
-    const dOutlineSoft = Color(0xFF1F2A3D);
-    const dAccent = Color(0xFFE3A857);
-    final base = GoogleFonts.cairoTextTheme(ThemeData.dark().textTheme);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: dAccent,
-      brightness: Brightness.dark,
-    ).copyWith(
-      primary: dAccent,
-      onPrimary: const Color(0xFF3A2A0F),
-      secondary: dAccent,
-      surface: dSurface,
-      onSurface: dText,
-      onSurfaceVariant: dTextSoft,
-      error: const Color(0xFFF87171),
-      outline: dOutline,
-      outlineVariant: dOutlineSoft,
-    );
-    return _build(
-      scheme: scheme,
-      textTheme: base.apply(bodyColor: dText, displayColor: dText),
-      scaffold: dBg,
-      surface: dSurface,
-      fill: dFill,
-      onSurface: dText,
-      onSurfaceVariant: dTextSoft,
-      outline: dOutline,
-      outlineVariant: dOutlineSoft,
-    );
-  }
-
-  static ThemeData _build({
-    required ColorScheme scheme,
-    required TextTheme textTheme,
-    required Color scaffold,
-    required Color surface,
-    required Color fill,
-    required Color onSurface,
-    required Color onSurfaceVariant,
-    required Color outline,
-    required Color outlineVariant,
-  }) {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scaffold,
+      scaffoldBackgroundColor: bg,
       textTheme: textTheme,
+      splashFactory: InkSparkle.splashFactory,
       appBarTheme: AppBarTheme(
-        backgroundColor: surface,
-        foregroundColor: onSurface,
+        backgroundColor: bg,
+        foregroundColor: ink,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 0,
         shadowColor: Colors.transparent,
-        titleTextStyle: GoogleFonts.cairo(
-          color: onSurface,
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-        ),
-        iconTheme: IconThemeData(color: onSurface),
+        titleTextStyle: GoogleFonts.ibmPlexSansArabic(
+            color: ink, fontSize: 18, fontWeight: FontWeight.w700),
+        iconTheme: IconThemeData(color: ink),
       ),
       cardTheme: CardThemeData(
         color: surface,
@@ -145,92 +87,94 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: rCard,
-          side: BorderSide(color: outlineVariant),
-        ),
+            borderRadius: Radii.md, side: BorderSide(color: line)),
       ),
-      dividerTheme: DividerThemeData(color: outlineVariant, thickness: 1),
+      dividerTheme: DividerThemeData(color: lineSoft, thickness: 1, space: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: fill,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: rField,
-          borderSide: BorderSide(color: outline),
-        ),
+            borderRadius: Radii.sm, borderSide: BorderSide(color: line)),
         enabledBorder: OutlineInputBorder(
-          borderRadius: rField,
-          borderSide: BorderSide(color: outline),
-        ),
+            borderRadius: Radii.sm, borderSide: BorderSide(color: line)),
         focusedBorder: OutlineInputBorder(
-          borderRadius: rField,
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
-        ),
-        labelStyle: GoogleFonts.cairo(color: onSurfaceVariant),
-        hintStyle: GoogleFonts.cairo(color: onSurfaceVariant),
+            borderRadius: Radii.sm,
+            borderSide: BorderSide(color: accent, width: 1.5)),
+        labelStyle: TextStyle(color: inkSoft),
+        hintStyle: TextStyle(color: AppColors.muted),
+        prefixIconColor: inkSoft,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
-          minimumSize: const Size(double.infinity, 52),
+          backgroundColor: accent,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 52),
           elevation: 0,
-          textStyle: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w800),
-          shape: const RoundedRectangleBorder(borderRadius: rField),
+          textStyle: GoogleFonts.ibmPlexSansArabic(
+              fontSize: 15, fontWeight: FontWeight.w700),
+          shape: const RoundedRectangleBorder(borderRadius: Radii.md),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
-          minimumSize: const Size(double.infinity, 52),
+          backgroundColor: accent,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 52),
           elevation: 0,
           shadowColor: Colors.transparent,
-          textStyle: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w800),
-          shape: const RoundedRectangleBorder(borderRadius: rField),
+          textStyle: GoogleFonts.ibmPlexSansArabic(
+              fontSize: 15, fontWeight: FontWeight.w700),
+          shape: const RoundedRectangleBorder(borderRadius: Radii.md),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: scheme.primary,
-          minimumSize: const Size(double.infinity, 50),
-          side: BorderSide(color: outline),
-          textStyle: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w700),
-          shape: const RoundedRectangleBorder(borderRadius: rField),
+          foregroundColor: primary,
+          minimumSize: const Size(0, 50),
+          side: BorderSide(color: line),
+          textStyle: GoogleFonts.ibmPlexSansArabic(
+              fontSize: 15, fontWeight: FontWeight.w700),
+          shape: const RoundedRectangleBorder(borderRadius: Radii.md),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: scheme.primary,
-          textStyle: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+          foregroundColor: accent,
+          textStyle: GoogleFonts.ibmPlexSansArabic(fontWeight: FontWeight.w700),
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: fill,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        side: BorderSide(color: outlineVariant),
-        labelStyle: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.pill),
+        side: BorderSide(color: lineSoft),
+        labelStyle: GoogleFonts.ibmPlexSansArabic(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: surface,
-        selectedItemColor: scheme.primary,
-        unselectedItemColor: onSurfaceVariant,
-        type: BottomNavigationBarType.fixed,
-        elevation: 0,
+      iconTheme: IconThemeData(color: inkSoft),
+      listTileTheme: ListTileThemeData(
+        iconColor: inkSoft,
+        titleTextStyle: textTheme.titleSmall,
+        subtitleTextStyle: textTheme.bodySmall,
       ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
-        indicatorColor: scheme.primary.withValues(alpha: 0.14),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-      ),
-      iconTheme: IconThemeData(color: scheme.primary),
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: rPanel),
+        shape: const RoundedRectangleBorder(borderRadius: Radii.lg),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(24))),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.navy,
+        contentTextStyle: GoogleFonts.ibmPlexSansArabic(color: Colors.white),
+        behavior: SnackBarBehavior.floating,
+        shape: const RoundedRectangleBorder(borderRadius: Radii.md),
       ),
     );
   }

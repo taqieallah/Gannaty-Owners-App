@@ -127,6 +127,55 @@ class StatusBadge extends StatelessWidget {
       };
 }
 
+// ── KPI stat card ─────────────────────────────────────────────────────────────
+class StatCard extends StatelessWidget {
+  const StatCard({
+    super.key,
+    required this.label,
+    required this.value,
+    this.icon,
+    this.tone = BadgeTone.neutral,
+    this.valueColor,
+    this.onTap,
+  });
+  final String label;
+  final String value;
+  final IconData? icon;
+  final BadgeTone tone;
+  final Color? valueColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final (fg, bg) = StatusBadge._tone(tone);
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(Gap.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (icon != null) ...[
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: bg, borderRadius: Radii.sm),
+              child: Icon(icon, size: 18, color: fg),
+            ),
+            Gap.h12,
+          ],
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.num(valueColor ?? AppColors.ink, size: 20, weight: FontWeight.w800)),
+          Gap.h4,
+          Text(label, style: t.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Quick action ──────────────────────────────────────────────────────────────
 class QuickAction extends StatelessWidget {
   const QuickAction(

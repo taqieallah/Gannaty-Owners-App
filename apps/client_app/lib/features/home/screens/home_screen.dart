@@ -45,6 +45,8 @@ class HomeScreen extends ConsumerWidget {
                   error: (_, __) => _BalanceCard(account: null),
                   data: (a) => _BalanceCard(account: a),
                 ),
+                Gap.h12,
+                _Kpis(account: accountAsync.asData?.value, requests: requests),
                 Gap.h20,
                 const _QuickActions(),
                 Gap.h24,
@@ -284,6 +286,50 @@ class _BalanceSkeleton extends StatelessWidget {
         child: const CircularProgressIndicator(
             strokeWidth: 2.4, color: Colors.white54),
       );
+}
+
+// ── KPIs ────────────────────────────────────────────────────────────────────
+class _Kpis extends StatelessWidget {
+  const _Kpis({required this.account, required this.requests});
+  final OwnerAccount? account;
+  final List<ServiceRequest> requests;
+  @override
+  Widget build(BuildContext context) {
+    final open = requests
+        .where((r) => r.status != ServiceRequestStatus.solved)
+        .length;
+    return Row(children: [
+      Expanded(
+        child: StatCard(
+          label: 'المدفوع هذا العام',
+          value: '${money(account?.totalPayments ?? 0)} جنيه',
+          icon: Icons.trending_up_rounded,
+          tone: BadgeTone.success,
+          valueColor: AppColors.success,
+        ),
+      ),
+      Gap.w12,
+      Expanded(
+        child: StatCard(
+          label: 'طلبات الصيانة',
+          value: '${requests.length}',
+          icon: Icons.build_rounded,
+          tone: BadgeTone.copper,
+          onTap: () => context.go('/requests'),
+        ),
+      ),
+      Gap.w12,
+      Expanded(
+        child: StatCard(
+          label: 'طلبات مفتوحة',
+          value: '$open',
+          icon: Icons.pending_actions_rounded,
+          tone: BadgeTone.amber,
+          onTap: () => context.go('/requests'),
+        ),
+      ),
+    ]);
+  }
 }
 
 // ── Quick actions ───────────────────────────────────────────────────────────

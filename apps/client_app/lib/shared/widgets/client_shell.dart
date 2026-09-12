@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/app_colors.dart';
+import '../../core/design/app_spacing.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/settings/app_settings.dart';
+import 'desktop_sidebar.dart';
 import '../../core/settings/app_text.dart';
 import 'owner_receipt_sheet.dart';
 
@@ -124,6 +126,37 @@ class _ClientShellState extends ConsumerState<ClientShell> {
                     : 0;
 
     final cs = Theme.of(context).colorScheme;
+
+    // ── Desktop / tablet: cream page → white workspace → dark sidebar ────────
+    if (isWide(context)) {
+      return Scaffold(
+        backgroundColor: AppColors.cream,
+        body: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: Radii.xl,
+              border: Border.all(color: AppColors.lineCream),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(children: [
+              DesktopSidebar(location: location),
+              const VerticalDivider(width: 1, color: AppColors.line),
+              Expanded(
+                child: Theme(
+                  data: Theme.of(context)
+                      .copyWith(scaffoldBackgroundColor: AppColors.surface),
+                  child: widget.child,
+                ),
+              ),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    // ── Mobile: bottom navigation ────────────────────────────────────────────
     return PopScope(
       canPop: !isRootShellRoute,
       onPopInvokedWithResult: (didPop, _) async {

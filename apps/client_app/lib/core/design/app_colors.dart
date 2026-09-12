@@ -6,38 +6,41 @@ class AppColors {
   AppColors._();
 
   // ── Brand ────────────────────────────────────────────────────────────────
-  static const Color navy = Color(0xFF0E2740); // primary brand
-  static const Color navyDeep = Color(0xFF0A1E33); // hero / headers
-  static const Color navySoft = Color(0xFF1C3A57);
-  static const Color copper = Color(0xFFB4652A); // accent / primary actions
-  static const Color copperSoft = Color(0xFFC98A5C);
-  static const Color copperTint = Color(0xFFF6EDE4); // copper wash fills
+  static const Color navy = Color(0xFF101A30); // primary / deep navy
+  static const Color sidebar = Color(0xFF111827); // dark navigation sidebar
+  static const Color navyDeep = Color(0xFF0C1424); // hero gradient bottom
+  static const Color navySoft = Color(0xFF1B2740); // hero gradient top
+  static const Color copper = Color(0xFFC46A16); // accent / primary actions
+  static const Color copperSoft = Color(0xFFD98A3C);
+  static const Color copperTint = Color(0xFFF3E3D5); // light copper wash
 
   // ── Surfaces ───────────────────────────────────────────────────────────────
-  static const Color bg = Color(0xFFF5F4F1); // app background (warm gray)
-  static const Color surface = Color(0xFFFFFFFF); // cards / sheets
-  static const Color surfaceAlt = Color(0xFFFAF9F6); // subtle fills / inputs
-  static const Color surfaceMuted = Color(0xFFEFEEE9);
+  static const Color cream = Color(0xFFF3E8D0); // warm outer background
+  static const Color bg = cream; // app background
+  static const Color surface = Color(0xFFFFFFFF); // workspace / cards
+  static const Color surfaceAlt = Color(0xFFF7F8FA); // light gray fills / inputs
+  static const Color surfaceMuted = Color(0xFFEFEFEC);
 
   // ── Ink ─────────────────────────────────────────────────────────────────
-  static const Color ink = Color(0xFF14263D); // primary text
-  static const Color inkSoft = Color(0xFF5A6675); // secondary text
-  static const Color muted = Color(0xFF8C94A1); // captions / disabled
+  static const Color ink = Color(0xFF111827); // primary text
+  static const Color inkSoft = Color(0xFF667085); // secondary text
+  static const Color muted = Color(0xFF98A0AC); // captions / disabled
 
   // ── Lines ───────────────────────────────────────────────────────────────
-  static const Color line = Color(0xFFE7E4DD);
-  static const Color lineSoft = Color(0xFFF0EEE9);
+  static const Color line = Color(0xFFEAEBEE); // borders on white
+  static const Color lineSoft = Color(0xFFF1F2F4);
+  static const Color lineCream = Color(0xFFE6DABF); // borders on cream
 
   // ── Financial / status ──────────────────────────────────────────────────
-  static const Color success = Color(0xFF1F7A54); // paid / credit / positive
-  static const Color successTint = Color(0xFFE6F2EC);
-  static const Color danger = Color(0xFFC0392B); // debt / overdue / negative
-  static const Color dangerTint = Color(0xFFF7E7E4);
-  static const Color amber = Color(0xFFC0891D); // pending / warning
-  static const Color amberTint = Color(0xFFF7EFDC);
+  static const Color success = Color(0xFF00866A); // paid / credit / positive
+  static const Color successTint = Color(0xFFDFF1EC);
+  static const Color danger = Color(0xFFC62828); // debt / overdue / negative
+  static const Color dangerTint = Color(0xFFF8E6E6);
+  static const Color amber = Color(0xFFD97706); // pending / warning
+  static const Color amberTint = Color(0xFFFBEEDD);
   static const Color info = Color(0xFF2B6CB0);
   static const Color infoTint = Color(0xFFE4EDF6);
-  static const Color neutralTint = Color(0xFFEDEFF2);
+  static const Color neutralTint = Color(0xFFEFF1F4);
 
   // ── Dark mode ─────────────────────────────────────────────────────────────
   static const Color dBg = Color(0xFF0B1622);

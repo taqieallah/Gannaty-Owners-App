@@ -61,7 +61,7 @@ function normalizePhone(value: string): string {
 }
 
 // A deterministic UUID (v5-like) from the owner id, used as the JWT `sub`.
-async function ownerSub(ownerId: number): Promise<string> {
+async function ownerSub(ownerId: string): Promise<string> {
   const data = new TextEncoder().encode(`gannaty-owner-${ownerId}`);
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
   const h = [...hash.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -133,8 +133,14 @@ Deno.serve(async (req: Request) => {
   }
   if (!ok) return json({ error: "wrong_password" }, 401);
 
-  const ownerId = Number(d.Id ?? 0);
-  if (!ownerId) return json({ error: "owner_missing_id" }, 500);
+  // Exact int64 Id as text — owner Ids exceed JS safe-integer range, so we
+  // fetch data->>'Id' via a service-role RPC (SQL keeps it exact) rather than
+  // reading the precision-lost parsed number.
+  const { data: idText } = await admin.rpc("owner_id_text_by_docid", {
+    p_doc_id: match.doc_id,
+  });
+  const ownerIdText = String(idText ?? "").trim();
+  if (!ownerIdText) return json({ error: "owner_missing_id" }, 500);
 
   // Best-effort: persist the FCM token on the owner doc (service role).
   if (fcmToken) {
@@ -154,8 +160,8 @@ Deno.serve(async (req: Request) => {
     role: "authenticated",
     aud: "authenticated",
     iss: `${SUPABASE_URL}/auth/v1`,
-    sub: await ownerSub(ownerId),
-    owner_id: ownerId,
+    sub: await ownerSub(ownerIdText),
+    owner_id: ownerIdText,
     phone: normalizePhone(String(d.Phone ?? "")),
     iat: now,
     exp: getNumericDate(TOKEN_TTL_SECONDS),
@@ -172,7 +178,7 @@ Deno.serve(async (req: Request) => {
     access_token: token,
     expires_in: TOKEN_TTL_SECONDS,
     owner: {
-      Id: ownerId,
+      Id: ownerIdText,
       Name: String(d.Name ?? ""),
       VillaNo: String(d.VillaNo ?? ""),
       Phone: String(d.Phone ?? ""),

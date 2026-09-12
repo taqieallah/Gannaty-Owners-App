@@ -5,26 +5,28 @@
 --
 -- Model: the client authenticates through the `owner-login` Edge Function
 -- (verifies phone+password server-side) and receives a JWT carrying an
--- `owner_id` (and `phone`) claim. The Flutter client uses that token as its
--- Supabase access token (third-party auth). These policies scope every read
--- and write to the calling owner via that claim.
+-- `owner_id` claim — the owner's EXACT numeric Id AS TEXT (owner Ids are int64
+-- values beyond JS/int4 range, so everything compares as text). RLS scopes
+-- every read and write to that owner via that claim.
 --
--- PREREQUISITES (do these too):
+-- PREREQUISITES:
 --   1) Deploy the edge function:  supabase functions deploy owner-login --no-verify-jwt
---   2) Dashboard → Authentication → Providers → Anonymous → OFF  (critical)
---   3) Run this whole file in the SQL Editor.
+--   2) Set secrets: APP_JWT_SECRET (= the project's Legacy JWT Secret, which
+--      still verifies HS256 tokens) and OWNERS_WORKSPACE_UID.
+--   3) Dashboard → Authentication → Providers → Anonymous → OFF.
+--   4) Run this whole file in the SQL Editor.
 -- ============================================================================
 
 create extension if not exists pgcrypto;
 
 -- ── Helpers ─────────────────────────────────────────────────────────────────
 
--- owner_id from the caller's JWT (null when the token is not an owner token).
+-- The owner_id claim from the caller's JWT, as TEXT (null when absent/empty).
 create or replace function public.jwt_owner_id()
-returns int language sql stable as $$
+returns text language sql stable as $$
   select nullif(
     current_setting('request.jwt.claims', true)::jsonb ->> 'owner_id', ''
-  )::int;
+  );
 $$;
 
 -- phone claim from the caller's JWT.
@@ -51,12 +53,25 @@ begin
   return n;
 end $$;
 
+-- Exact owner Id (int64) as TEXT for a given owner doc — called by the
+-- owner-login Edge Function (service role) so the id never passes through a
+-- JS number. Restricted to service_role.
+create or replace function public.owner_id_text_by_docid(p_doc_id text)
+returns text language sql security definer set search_path = public as $$
+  select data->>'Id' from public.documents
+  where uid = '5nCpbFKDt1NyrXCw56HaattDVT42'
+    and collection = 'owners' and doc_id = p_doc_id
+  limit 1;
+$$;
+revoke all on function public.owner_id_text_by_docid(text) from public, authenticated;
+grant execute on function public.owner_id_text_by_docid(text) to service_role;
+
 -- ── Drop the old permissive policies ────────────────────────────────────────
 drop policy if exists owners_app_read on public.documents;
 drop policy if exists owners_app_insert_requests on public.documents;
 drop policy if exists owners_app_update on public.documents;
 
--- ── READ: owner-account data, scoped to the calling owner ───────────────────
+-- ── READ: owner-account data, scoped to the calling owner (TEXT id match) ────
 drop policy if exists owners_app_read_own on public.documents;
 create policy owners_app_read_own on public.documents
   for select to authenticated
@@ -64,10 +79,10 @@ create policy owners_app_read_own on public.documents
     uid = '5nCpbFKDt1NyrXCw56HaattDVT42'
     and public.jwt_owner_id() is not null
     and (
-         (collection = 'owners'             and (data->>'Id')::int      = public.jwt_owner_id())
-      or (collection = 'owner_transactions' and (data->>'OwnerId')::int = public.jwt_owner_id())
-      or (collection = 'owner_year_settings'and (data->>'OwnerId')::int = public.jwt_owner_id())
-      or (collection = 'owner_statements'   and (data->>'OwnerId')::int = public.jwt_owner_id())
+         (collection = 'owners'             and data->>'Id'      = public.jwt_owner_id())
+      or (collection = 'owner_transactions' and data->>'OwnerId' = public.jwt_owner_id())
+      or (collection = 'owner_year_settings'and data->>'OwnerId' = public.jwt_owner_id())
+      or (collection = 'owner_statements'   and data->>'OwnerId' = public.jwt_owner_id())
       or (collection = 'serviceRequests'    and public.normalize_eg_phone(data->>'clientPhone')
                                                 = public.normalize_eg_phone(public.jwt_phone()))
       or (collection = 'announcements')   -- global to all owners
@@ -80,7 +95,7 @@ create policy owners_app_read_own on public.documents
 -- other owners' rows here. This still removes ALL anonymous/public access
 -- (a valid owner JWT is now required). RESIDUAL RISK — tighten later by tagging
 -- revenue/attachment rows with an owner link, then move them to the scoped
--- policy above. Restricting to only the collections the client actually needs.
+-- policy above.
 drop policy if exists owners_app_read_shared on public.documents;
 create policy owners_app_read_shared on public.documents
   for select to authenticated
@@ -106,16 +121,16 @@ create policy owners_app_insert_requests on public.documents
   );
 
 -- NOTE: there is deliberately NO client UPDATE/DELETE policy. Password and FCM
--- writes go through the SECURITY DEFINER RPCs below, which are scoped to the
--- caller's own owner_id — closing the account-takeover hole. The full ERP admin
--- keeps its access via the separate workspace_members policy.
+-- writes go through the SECURITY DEFINER RPCs below, scoped to the caller's own
+-- owner_id — closing the account-takeover hole. The full ERP admin keeps its
+-- access via the separate workspace_members policy.
 
 -- ── RPC: change own password (verifies current, stores bcrypt) ──────────────
 create or replace function public.owners_app_set_password(p_current text, p_new text)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare
   v_uid constant text := '5nCpbFKDt1NyrXCw56HaattDVT42';
-  v_owner int := public.jwt_owner_id();
+  v_owner text := public.jwt_owner_id();
   v_doc text;
   v_stored text;
 begin
@@ -124,7 +139,7 @@ begin
 
   select doc_id, data->>'Password' into v_doc, v_stored
   from public.documents
-  where uid = v_uid and collection = 'owners' and (data->>'Id')::int = v_owner
+  where uid = v_uid and collection = 'owners' and data->>'Id' = v_owner
   limit 1;
   if v_doc is null then return false; end if;
 
@@ -156,12 +171,12 @@ create or replace function public.owners_app_save_fcm(p_token text)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare
   v_uid constant text := '5nCpbFKDt1NyrXCw56HaattDVT42';
-  v_owner int := public.jwt_owner_id();
+  v_owner text := public.jwt_owner_id();
   v_doc text;
 begin
   if v_owner is null then raise exception 'not_owner'; end if;
   select doc_id into v_doc from public.documents
-  where uid = v_uid and collection = 'owners' and (data->>'Id')::int = v_owner
+  where uid = v_uid and collection = 'owners' and data->>'Id' = v_owner
   limit 1;
   if v_doc is null then return false; end if;
   update public.documents

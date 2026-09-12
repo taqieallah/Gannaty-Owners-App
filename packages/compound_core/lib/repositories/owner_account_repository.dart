@@ -107,9 +107,11 @@ class OwnerAccountRepository {
   /// Build a [Villa] session object from the `owner-login` Edge Function's
   /// owner payload (no password — the server already verified it).
   static Villa buildVillaFromOwnerMap(Map<String, dynamic> d) {
-    final ownerId = (d['Id'] as num?)?.toInt() ?? 0;
+    // Owner Ids are int64 values beyond JS safe-integer range, so the login
+    // function sends `Id` as an exact string. Keep it as text in the villa id.
+    final idStr = (d['Id'] ?? '').toString().trim();
     return Villa(
-      id: '$ownerIdPrefix$ownerId',
+      id: '$ownerIdPrefix$idStr',
       villaNumber: ((d['VillaNo'] as String?) ?? '').trim(),
       ownerName: ((d['Name'] as String?) ?? '').trim(),
       phoneNumber: ((d['Phone'] as String?) ?? '').trim(),

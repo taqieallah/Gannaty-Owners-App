@@ -57,11 +57,23 @@ class SessionController extends AsyncNotifier<Villa?> {
     try {
       final map = (json.decode(ownerJson) as Map).cast<String, dynamic>();
       SupaConfig.setOwnerToken(token);
+      // Keep the device token fresh for payment push (best-effort, no await).
+      unawaited(_refreshOwnerFcm());
       return OwnerAccountRepository.buildVillaFromOwnerMap(map);
     } catch (_) {
       await _clearSession(prefs);
       return null;
     }
+  }
+
+  /// Persists the current device FCM token on the signed-in owner's record so
+  /// the push-owner-transaction function can reach this device. Best-effort.
+  Future<void> _refreshOwnerFcm() async {
+    try {
+      final t = await NotificationService.currentToken();
+      if (t == null || t.isEmpty) return;
+      await ref.read(ownerAccountRepositoryProvider).saveOwnFcm(t);
+    } catch (_) {/* non-critical */}
   }
 
   // ── Sign in ──────────────────────────────────────────────────────────────
@@ -73,8 +85,11 @@ class SessionController extends AsyncNotifier<Villa?> {
     final auth = ref.read(authServiceProvider);
     final prefs = await ref.read(sharedPreferencesProvider.future);
     try {
+      // Best-effort device token so the owner receives payment push notifications.
+      final fcm = await NotificationService.currentToken();
       final result = await auth
-          .ownerLogin(phone: phone.trim(), password: password.trim())
+          .ownerLogin(
+              phone: phone.trim(), password: password.trim(), fcmToken: fcm)
           .timeout(const Duration(seconds: 20));
 
       SupaConfig.setOwnerToken(result.accessToken);

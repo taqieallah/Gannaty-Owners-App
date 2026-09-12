@@ -93,6 +93,18 @@ class NotificationService {
 
   // ── Token management ───────────────────────────────────────────────────────
 
+  /// The current device FCM token, or null if messaging is unavailable / not
+  /// ready. Used by the owners app to persist the token on the owner's record
+  /// (Supabase) so the push-owner-transaction function can reach this device.
+  static Future<String?> currentToken() async {
+    if (!_isSupported || _messaging == null) return null;
+    try {
+      return await _messaging!.getToken();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Save the admin's FCM token to /fcmTokens/{uid}.
   static Future<void> saveAdminToken(String uid) async {
     if (!_isSupported || _messaging == null) return;

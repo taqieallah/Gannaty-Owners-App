@@ -10,11 +10,18 @@ import '../../../core/settings/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
 
-class MyRequestsScreen extends ConsumerWidget {
+class MyRequestsScreen extends ConsumerStatefulWidget {
   const MyRequestsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyRequestsScreen> createState() => _MyRequestsScreenState();
+}
+
+class _MyRequestsScreenState extends ConsumerState<MyRequestsScreen> {
+  ServiceRequestStatus? _filter; // null = all
+
+  @override
+  Widget build(BuildContext context) {
     final requestsAsync = ref.watch(serviceRequestsProvider);
     final settings = ref.watch(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
@@ -30,20 +37,38 @@ class MyRequestsScreen extends ConsumerWidget {
         label: Text(t.newRequest),
       ),
       body: requestsAsync.when(
-        data: (requests) {
-          if (requests.isEmpty) {
-            return Center(child: Text(t.noRequestsYet));
-          }
+        data: (all) {
+          final counts = <ServiceRequestStatus?, int>{
+            null: all.length,
+            for (final s in ServiceRequestStatus.values)
+              s: all.where((r) => r.status == s).length,
+          };
+          final requests =
+              _filter == null ? all : all.where((r) => r.status == _filter).toList();
 
-          return ListView.separated(
-            itemCount: requests.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 14),
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () => context.push('/requests/${requests[index].id}'),
-                child: _RequestCard(request: requests[index], t: t),
-              );
-            },
+          return Column(
+            children: [
+              _FilterBar(
+                selected: _filter,
+                counts: counts,
+                t: t,
+                onSelect: (f) => setState(() => _filter = f),
+              ),
+              Expanded(
+                child: requests.isEmpty
+                    ? _EmptyRequests(t: t, filtered: _filter != null)
+                    : ListView.separated(
+                        padding: const EdgeInsets.only(top: 4, bottom: 90),
+                        itemCount: requests.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) => GestureDetector(
+                          onTap: () =>
+                              context.push('/requests/${requests[index].id}'),
+                          child: _RequestCard(request: requests[index], t: t),
+                        ),
+                      ),
+              ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -53,6 +78,76 @@ class MyRequestsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _FilterBar extends StatelessWidget {
+  const _FilterBar(
+      {required this.selected,
+      required this.counts,
+      required this.onSelect,
+      required this.t});
+  final ServiceRequestStatus? selected;
+  final Map<ServiceRequestStatus?, int> counts;
+  final ValueChanged<ServiceRequestStatus?> onSelect;
+  final AppText t;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <(ServiceRequestStatus?, String)>[
+      (null, 'الكل'),
+      (ServiceRequestStatus.pending, t.pending),
+      (ServiceRequestStatus.inProgress, t.inProgress),
+      (ServiceRequestStatus.solved, t.solved),
+    ];
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (status, label) = items[i];
+          final sel = selected == status;
+          final n = counts[status] ?? 0;
+          return ChoiceChip(
+            selected: sel,
+            showCheckmark: false,
+            onSelected: (_) => onSelect(status),
+            label: Text('$label ($n)'),
+            labelStyle: TextStyle(
+                color: sel ? Colors.white : AppTheme.textSoft,
+                fontWeight: FontWeight.w700),
+            selectedColor: AppTheme.cognac,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            side: BorderSide(
+                color: sel
+                    ? AppTheme.cognac
+                    : Theme.of(context).colorScheme.outlineVariant),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _EmptyRequests extends StatelessWidget {
+  const _EmptyRequests({required this.t, required this.filtered});
+  final AppText t;
+  final bool filtered;
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.handyman_outlined,
+                size: 56, color: Theme.of(context).colorScheme.outlineVariant),
+            const SizedBox(height: 14),
+            Text(filtered ? 'لا توجد طلبات بهذه الحالة' : t.noRequestsYet,
+                style: Theme.of(context).textTheme.bodyLarge),
+          ]),
+        ),
+      );
 }
 
 class _RequestCard extends StatelessWidget {

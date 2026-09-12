@@ -26,7 +26,7 @@ class BalanceScreen extends ConsumerWidget {
         ref.invalidate(ownerAccountProvider);
         // Catch the ERP's statement rebuild (~1.5s later) even without a
         // realtime UPDATE event.
-        Future.delayed(const Duration(seconds: 2), () {
+        Future.delayed(const Duration(seconds: 4), () {
           try {
             ref.invalidate(ownerAccountProvider);
           } catch (_) {/* screen gone */}

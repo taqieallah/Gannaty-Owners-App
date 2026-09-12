@@ -24,7 +24,7 @@ class HomeScreen extends ConsumerWidget {
         // The ERP rebuilds the statement (the authoritative balance) ~1.5s
         // later; refetch again to catch it even if the UPDATE realtime event
         // isn't delivered.
-        Future.delayed(const Duration(seconds: 2), () {
+        Future.delayed(const Duration(seconds: 4), () {
           try {
             ref.invalidate(ownerAccountProvider);
           } catch (_) {/* screen gone */}

@@ -22,7 +22,16 @@ class BalanceScreen extends ConsumerWidget {
 
     // Whenever the transaction stream emits new data, re-fetch the balance.
     ref.listen(ownerTransactionsStreamProvider, (prev, next) {
-      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+      if (next.hasValue) {
+        ref.invalidate(ownerAccountProvider);
+        // Catch the ERP's statement rebuild (~1.5s later) even without a
+        // realtime UPDATE event.
+        Future.delayed(const Duration(seconds: 2), () {
+          try {
+            ref.invalidate(ownerAccountProvider);
+          } catch (_) {/* screen gone */}
+        });
+      }
     });
     ref.listen(ownerStatementSignalProvider, (prev, next) {
       if (next.hasValue) ref.invalidate(ownerAccountProvider);

@@ -19,7 +19,17 @@ class HomeScreen extends ConsumerWidget {
     // Refresh the balance hero live: on a new transaction and when the ERP
     // rebuilds the statement (the authoritative balance source).
     ref.listen(ownerTransactionsStreamProvider, (prev, next) {
-      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+      if (next.hasValue) {
+        ref.invalidate(ownerAccountProvider);
+        // The ERP rebuilds the statement (the authoritative balance) ~1.5s
+        // later; refetch again to catch it even if the UPDATE realtime event
+        // isn't delivered.
+        Future.delayed(const Duration(seconds: 2), () {
+          try {
+            ref.invalidate(ownerAccountProvider);
+          } catch (_) {/* screen gone */}
+        });
+      }
     });
     ref.listen(ownerStatementSignalProvider, (prev, next) {
       if (next.hasValue) ref.invalidate(ownerAccountProvider);

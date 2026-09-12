@@ -22,7 +22,6 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
-import { compare as bcryptCompare } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const WORKSPACE_UID = Deno.env.get("OWNERS_WORKSPACE_UID") ?? "";
 const JWT_SECRET = Deno.env.get("APP_JWT_SECRET") ?? "";
@@ -122,16 +121,14 @@ Deno.serve(async (req: Request) => {
   const stored = String(d.Password ?? "").trim();
   const isDefault = stored === "" || stored === "123456";
 
-  // Verify: bcrypt if the stored value is hashed, else plaintext (transition).
-  let ok = false;
-  if (isDefault) {
-    ok = password.trim() === "123456" || stored === password.trim();
-  } else if (stored.startsWith("$2")) {
-    try { ok = await bcryptCompare(password, stored); } catch { ok = false; }
-  } else {
-    ok = password.trim() === stored;
-  }
-  if (!ok) return json({ error: "wrong_password" }, 401);
+  // Verify the password in Postgres (same pgcrypto that hashed it) — avoids any
+  // Deno/Postgres bcrypt incompatibility that would reject a correct password.
+  const { data: pwOk, error: pwErr } = await admin.rpc("owner_check_password", {
+    p_doc_id: match.doc_id,
+    p_password: password.trim(),
+  });
+  if (pwErr) return json({ error: "lookup_failed" }, 500);
+  if (pwOk !== true) return json({ error: "wrong_password" }, 401);
 
   // Exact int64 Id as text — owner Ids exceed JS safe-integer range, so we
   // fetch data->>'Id' via a service-role RPC (SQL keeps it exact) rather than

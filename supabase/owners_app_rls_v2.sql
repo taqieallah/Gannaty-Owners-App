@@ -78,6 +78,31 @@ $$;
 revoke all on function public.owner_id_text_by_docid(text) from public, authenticated;
 grant execute on function public.owner_id_text_by_docid(text) to service_role;
 
+-- Verify an owner's password server-side using the SAME pgcrypto that created
+-- the bcrypt hash (avoids Deno/Postgres bcrypt incompatibility). Called by the
+-- owner-login Edge Function (service role). Returns true when the password is
+-- correct (bcrypt hash, plaintext transition value, or the 123456 default).
+create or replace function public.owner_check_password(p_doc_id text, p_password text)
+returns boolean language plpgsql security definer
+set search_path = public, extensions as $$
+declare v_stored text;
+begin
+  select data->>'Password' into v_stored from public.documents
+  where uid = '5nCpbFKDt1NyrXCw56HaattDVT42'
+    and collection = 'owners' and doc_id = p_doc_id
+  limit 1;
+  if v_stored is null then return false; end if;
+  if v_stored = '' or v_stored = '123456' then
+    return coalesce(p_password, '') = '123456' or coalesce(p_password, '') = v_stored;
+  elsif v_stored like '$2%' then
+    return crypt(coalesce(p_password, ''), v_stored) = v_stored;
+  else
+    return coalesce(p_password, '') = v_stored;
+  end if;
+end $$;
+revoke all on function public.owner_check_password(text, text) from public, authenticated;
+grant execute on function public.owner_check_password(text, text) to service_role;
+
 -- ── Drop the old permissive policies ────────────────────────────────────────
 drop policy if exists owners_app_read on public.documents;
 drop policy if exists owners_app_insert_requests on public.documents;
@@ -139,7 +164,9 @@ create policy owners_app_insert_requests on public.documents
 
 -- ── RPC: change own password (verifies current, stores bcrypt) ──────────────
 create or replace function public.owners_app_set_password(p_current text, p_new text)
-returns boolean language plpgsql security definer set search_path = public as $$
+returns boolean language plpgsql security definer
+-- pgcrypto (crypt/gen_salt) lives in the `extensions` schema on Supabase.
+set search_path = public, extensions as $$
 declare
   v_uid constant text := '5nCpbFKDt1NyrXCw56HaattDVT42';
   v_owner text := public.jwt_owner_id();

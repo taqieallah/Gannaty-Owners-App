@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:compound_core/compound_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,61 +28,41 @@ final sharedPreferencesProvider =
 final sessionControllerProvider =
     AsyncNotifierProvider<SessionController, Villa?>(SessionController.new);
 
+/// Owner session backed by an `owner_id` JWT from the `owner-login` Edge
+/// Function. The token is held in [SupaConfig] and supplied to Supabase per
+/// request, so RLS scopes all reads/writes to this owner. No anonymous auth.
 class SessionController extends AsyncNotifier<Villa?> {
   static const _villaIdKey = 'client_villa_id';
   static const _villaPhoneKey = 'client_villa_phone';
+  static const _tokenKey = 'client_owner_token';
+  static const _ownerMapKey = 'client_owner_map';
+  static const _biometricPhoneKey = 'biometric_phone';
 
   // ── Session restore ──────────────────────────────────────────────────────
 
   @override
   Future<Villa?> build() async {
     final prefs = await ref.watch(sharedPreferencesProvider.future);
-    final auth = ref.watch(authServiceProvider);
+    return _restoreFromStorage(prefs);
+  }
 
-    if (auth.currentUser == null) {
-      await prefs.remove(_villaIdKey);
-      await prefs.remove(_villaPhoneKey);
+  /// Restores the session from a stored, unexpired token (no network).
+  Future<Villa?> _restoreFromStorage(SharedPreferences prefs) async {
+    final token = prefs.getString(_tokenKey);
+    final ownerJson = prefs.getString(_ownerMapKey);
+    if (token == null || !_tokenValid(token) || ownerJson == null) {
+      await _clearSession(prefs);
       return null;
     }
-
-    final savedId = prefs.getString(_villaIdKey);
-
-    // ── Owner-based session (I:\Rebrand حسابات الملاك) ──────────────────
-    if (savedId != null &&
-        savedId.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
-      final ownerId =
-          int.tryParse(savedId.substring(OwnerAccountRepository.ownerIdPrefix.length));
-      if (ownerId != null) {
-        await _ensureExpensesAuth();
-        final ownerRepo = ref.read(ownerAccountRepositoryProvider);
-        final villa = await ownerRepo.rebuildVillaById(ownerId);
-        if (villa != null) return villa;
-      }
-    }
-
-    // ── No valid session found ───────────────────────────────────────────
-    await prefs.remove(_villaIdKey);
-    await prefs.remove(_villaPhoneKey);
-    return null;
-  }
-
-  // ── Expenses Firebase auth ───────────────────────────────────────────────
-
-  /// Ensures the client has an anonymous Supabase session so RLS allows the
-  /// owner reads (mirrors the old anonymous Firebase auth).
-  static Future<void> _ensureExpensesAuth() async {
     try {
-      final auth = SupaConfig.client.auth;
-      if (auth.currentUser == null) {
-        await auth.signInAnonymously();
-      }
+      final map = (json.decode(ownerJson) as Map).cast<String, dynamic>();
+      SupaConfig.setOwnerToken(token);
+      return OwnerAccountRepository.buildVillaFromOwnerMap(map);
     } catch (_) {
-      // Non-critical — a failed read will surface as a user-visible error.
+      await _clearSession(prefs);
+      return null;
     }
   }
-
-  /// Push notifications are deferred on the Supabase build.
-  static Future<void> _saveFcmToken(String ownerDocId, int ownerId) async {}
 
   // ── Sign in ──────────────────────────────────────────────────────────────
 
@@ -91,72 +72,43 @@ class SessionController extends AsyncNotifier<Villa?> {
   }) async {
     final auth = ref.read(authServiceProvider);
     final prefs = await ref.read(sharedPreferencesProvider.future);
-
-    await prefs.remove(_villaIdKey);
-    await prefs.remove(_villaPhoneKey);
-
-    if (auth.currentUser == null) {
-      await auth.signInAnonymously();
-    }
-    // Also authenticate on the expenses secondary app so Firestore rules pass.
-    await _ensureExpensesAuth();
-
-    // ── Lookup in حسابات الملاك (owners collection) ──────────────────────
-    final ownerRepo = ref.read(ownerAccountRepositoryProvider);
     try {
-      final ownerDoc =
-          await ownerRepo.findOwnerDocByPhone(phone.trim()).timeout(
-                const Duration(seconds: 15),
-              );
-      if (ownerDoc == null) {
-        state = const AsyncData(null);
-        return 'رقم الهاتف غير موجود في حسابات الملاك';
-      }
-      final villa = OwnerAccountRepository.buildVillaFromDoc(ownerDoc);
-      if (villa.password.trim() != password.trim()) {
-        state = const AsyncData(null);
-        return 'كلمة المرور غير صحيحة';
-      }
-      await prefs.setString(_villaIdKey, villa.id);
-      await prefs.setString(_villaPhoneKey, villa.phoneNumber);
+      final result = await auth
+          .ownerLogin(phone: phone.trim(), password: password.trim())
+          .timeout(const Duration(seconds: 20));
+
+      SupaConfig.setOwnerToken(result.accessToken);
+      final villa = OwnerAccountRepository.buildVillaFromOwnerMap(result.owner);
+      await _persistSession(prefs, result.accessToken, result.owner, villa);
       state = AsyncData(villa);
-      // Save FCM token so admin can send push notifications to this device.
-      unawaited(_saveFcmToken(
-        ownerDoc.id,
-        int.tryParse(villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length)) ?? 0,
-      ));
       return null;
+    } on OwnerLoginException catch (e) {
+      SupaConfig.setOwnerToken(null);
+      state = const AsyncData(null);
+      return _loginErrorMessage(e.code);
     } on TimeoutException {
+      SupaConfig.setOwnerToken(null);
       state = const AsyncData(null);
       return 'انتهت مهلة الاتصال، تحقق من الإنترنت وحاول مجدداً';
-    } catch (e) {
+    } catch (_) {
+      SupaConfig.setOwnerToken(null);
       state = const AsyncData(null);
-      return 'خطأ في الاتصال: ${e.toString()}';
+      return 'خطأ في الاتصال، حاول مجددًا';
     }
   }
 
-  // ── Biometric sign in ────────────────────────────────────────────────────
+  // ── Biometric sign in (unlocks the stored, unexpired token) ──────────────
 
   Future<String?> signInWithBiometric() async {
     final prefs = await ref.read(sharedPreferencesProvider.future);
-    final savedPhone = prefs.getString('biometric_phone');
+    final savedPhone = prefs.getString(_biometricPhoneKey);
     if (savedPhone == null || savedPhone.isEmpty) {
       return 'لا توجد بيانات بصمة محفوظة';
     }
-
-    final auth = ref.read(authServiceProvider);
-    if (auth.currentUser == null) {
-      await auth.signInAnonymously();
+    final villa = await _restoreFromStorage(prefs);
+    if (villa == null) {
+      return 'انتهت الجلسة، سجّل الدخول بكلمة المرور مرة واحدة';
     }
-    await _ensureExpensesAuth();
-
-    final ownerRepo = ref.read(ownerAccountRepositoryProvider);
-    final ownerDoc = await ownerRepo.findOwnerDocByPhone(savedPhone.trim());
-    if (ownerDoc == null) return 'رقم الهاتف غير موجود في حسابات الملاك';
-
-    final villa = OwnerAccountRepository.buildVillaFromDoc(ownerDoc);
-    await prefs.setString(_villaIdKey, villa.id);
-    await prefs.setString(_villaPhoneKey, villa.phoneNumber);
     state = AsyncData(villa);
     return null;
   }
@@ -164,17 +116,13 @@ class SessionController extends AsyncNotifier<Villa?> {
   // ── Sign out ─────────────────────────────────────────────────────────────
 
   Future<void> signOut() async {
-    final auth = ref.read(authServiceProvider);
     final prefs = await ref.read(sharedPreferencesProvider.future);
-    await prefs.remove(_villaIdKey);
-    await prefs.remove(_villaPhoneKey);
-    if (auth.currentUser != null) {
-      await auth.signOut();
-    }
+    await _clearSession(prefs);
+    SupaConfig.setOwnerToken(null);
     state = const AsyncData(null);
   }
 
-  // ── Password management ──────────────────────────────────────────────────
+  // ── Password management (verified server-side) ───────────────────────────
 
   Future<String?> changePassword({
     required String currentPassword,
@@ -182,46 +130,107 @@ class SessionController extends AsyncNotifier<Villa?> {
   }) async {
     final villa = state.asData?.value;
     if (villa == null) return 'لا توجد جلسة مستخدم';
-    if (villa.password.trim() != currentPassword.trim()) {
-      return 'كلمة المرور الحالية غير صحيحة';
-    }
-    if (newPassword.trim().length < 4) {
-      return 'كلمة المرور الجديدة قصيرة جدًا';
-    }
-    return _doUpdatePassword(villa, newPassword.trim());
+    if (newPassword.trim().length < 4) return 'كلمة المرور الجديدة قصيرة جدًا';
+    return _setPassword(villa, currentPassword.trim(), newPassword.trim());
   }
 
   Future<String?> setInitialPassword({required String newPassword}) async {
     final villa = state.asData?.value;
     if (villa == null) return 'لا توجد جلسة مستخدم';
-    if (newPassword.trim().length < 4) {
-      return 'كلمة المرور الجديدة قصيرة جدًا';
-    }
-    return _doUpdatePassword(villa, newPassword.trim());
+    if (newPassword.trim().length < 4) return 'كلمة المرور الجديدة قصيرة جدًا';
+    // First login: the server allows a set without a current password.
+    return _setPassword(villa, '', newPassword.trim());
   }
 
-  Future<String?> _doUpdatePassword(Villa villa, String newPassword) async {
-    if (villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
-      // Owner-based session → update owners collection
-      final ownerId = int.parse(
-          villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
-      await ref
-          .read(ownerAccountRepositoryProvider)
-          .updatePassword(ownerId, newPassword);
-      final updated = await ref
-          .read(ownerAccountRepositoryProvider)
-          .rebuildVillaById(ownerId);
-      state = AsyncData(updated);
-    } else {
-      // Legacy villas session → update villas collection
-      await ref
-          .read(villaRepositoryProvider)
-          .updatePassword(villa.id, newPassword);
-      final updated =
-          await ref.read(villaRepositoryProvider).getById(villa.id);
-      state = AsyncData(updated);
+  Future<String?> _setPassword(
+      Villa villa, String current, String newPassword) async {
+    if (!villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
+      return 'الحساب غير مدعوم';
     }
-    return null;
+    final ownerId = int.tryParse(
+        villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+    if (ownerId == null) return 'الحساب غير صالح';
+    final repo = ref.read(ownerAccountRepositoryProvider);
+    try {
+      await repo.setOwnPassword(current, newPassword);
+      final updated = await repo.rebuildVillaById(ownerId);
+      if (updated != null) {
+        final prefs = await ref.read(sharedPreferencesProvider.future);
+        // Refresh the cached owner profile (IsFirstLogin now false).
+        final ownerJson = prefs.getString(_ownerMapKey);
+        if (ownerJson != null) {
+          try {
+            final map = (json.decode(ownerJson) as Map).cast<String, dynamic>();
+            map['IsFirstLogin'] = false;
+            await prefs.setString(_ownerMapKey, json.encode(map));
+          } catch (_) {/* keep old cache */}
+        }
+        state = AsyncData(updated);
+      }
+      return null;
+    } catch (e) {
+      return _passwordErrorMessage(e);
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  Future<void> _persistSession(
+    SharedPreferences prefs,
+    String token,
+    Map<String, dynamic> owner,
+    Villa villa,
+  ) async {
+    await prefs.setString(_tokenKey, token);
+    await prefs.setString(_ownerMapKey, json.encode(owner));
+    await prefs.setString(_villaIdKey, villa.id);
+    await prefs.setString(_villaPhoneKey, villa.phoneNumber);
+  }
+
+  Future<void> _clearSession(SharedPreferences prefs) async {
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_ownerMapKey);
+    await prefs.remove(_villaIdKey);
+    await prefs.remove(_villaPhoneKey);
+  }
+
+  /// True if the JWT has an `exp` at least 60s in the future.
+  bool _tokenValid(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = json.decode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      ) as Map;
+      final exp = (payload['exp'] as num?)?.toInt();
+      if (exp == null) return false;
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return exp > now + 60;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _loginErrorMessage(String code) {
+    switch (code) {
+      case 'phone_not_found':
+      case 'missing_credentials':
+        return 'رقم الهاتف غير موجود في حسابات الملاك';
+      case 'wrong_password':
+        return 'كلمة المرور غير صحيحة';
+      case 'network':
+        return 'خطأ في الاتصال، تحقق من الإنترنت وحاول مجدداً';
+      default:
+        return 'تعذّر تسجيل الدخول، حاول مجددًا';
+    }
+  }
+
+  String _passwordErrorMessage(Object e) {
+    final s = e.toString();
+    if (s.contains('wrong_password')) return 'كلمة المرور الحالية غير صحيحة';
+    if (s.contains('weak_password')) return 'كلمة المرور الجديدة قصيرة جدًا';
+    if (s.contains('not_owner')) return 'انتهت الجلسة، سجّل الدخول مجددًا';
+    return 'تعذّر تغيير كلمة المرور، حاول مجددًا';
   }
 }
 
@@ -246,6 +255,8 @@ final serviceRequestsProvider = StreamProvider<List<ServiceRequest>>((ref) {
 });
 
 final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
+  final villa = ref.watch(currentVillaProvider);
+  if (villa == null) return const Stream.empty();
   return ref.watch(announcementRepositoryProvider).watchAll();
 });
 
@@ -282,8 +293,6 @@ final ownerStatementYearsProvider = FutureProvider<List<int>>((ref) async {
 });
 
 /// Owner account with the precomputed balance for the selected year.
-/// If the session is owner-based (id starts with "owner_") → fetches by ID directly.
-/// Otherwise falls back to VillaNo lookup for legacy villas-collection sessions.
 final ownerAccountProvider = FutureProvider<OwnerAccount?>((ref) async {
   final villa = ref.watch(currentVillaProvider);
   if (villa == null) return null;

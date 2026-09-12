@@ -4,6 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 ///
 /// The publishable/anon key is a public client key protected by Row-Level
 /// Security — safe to ship, exactly like the committed firebase_options.
+///
+/// Owner clients authenticate through the `owner-login` Edge Function, which
+/// returns a signed JWT carrying an `owner_id` claim. That token is held here
+/// and supplied to Supabase as the access token (third-party auth), so RLS can
+/// scope every read/write to the calling owner. No anonymous auth is used.
 class SupaConfig {
   SupaConfig._();
 
@@ -18,18 +23,31 @@ class SupaConfig {
   /// together in the `documents` table.
   static const String workspaceUid = '5nCpbFKDt1NyrXCw56HaattDVT42';
 
+  /// The current owner access token (from the `owner-login` Edge Function).
+  /// Supplied to Supabase per request via the [Supabase.initialize] callback.
+  static String? _ownerToken;
+
   static bool _initialized = false;
 
-  /// Opens the Supabase client and restores any cached session.
+  /// Opens the Supabase client in third-party-auth mode: every request uses
+  /// [_ownerToken] as the bearer token (empty before login).
   static Future<void> initialize() async {
     if (_initialized) return;
     await Supabase.initialize(
       url: url,
       // ignore: deprecated_member_use
       anonKey: anonKey,
+      accessToken: () async => _ownerToken ?? '',
     );
     _initialized = true;
   }
+
+  /// Sets (or clears) the owner token used for subsequent Supabase requests.
+  static void setOwnerToken(String? token) {
+    _ownerToken = (token != null && token.isNotEmpty) ? token : null;
+  }
+
+  static String? get ownerToken => _ownerToken;
 
   static SupabaseClient get client => Supabase.instance.client;
 }

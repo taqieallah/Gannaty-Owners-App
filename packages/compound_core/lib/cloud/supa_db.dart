@@ -107,6 +107,12 @@ class SupaDb {
         .eq('doc_id', id);
   }
 
+  /// Calls a Postgres function (RPC) and returns its result. Used for the
+  /// SECURITY DEFINER owner mutations (password / FCM) that are scoped to the
+  /// caller's own owner_id claim.
+  Future<dynamic> callRpc(String fn, Map<String, dynamic> params) =>
+      _c.rpc(fn, params: params);
+
   /// Realtime stream of the whole [collection]. Emits the current list on
   /// connect and again on every insert/update/delete — same shape as a
   /// Firestore collection `.snapshots()`.

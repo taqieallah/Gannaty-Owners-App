@@ -104,6 +104,39 @@ class OwnerAccountRepository {
     );
   }
 
+  /// Build a [Villa] session object from the `owner-login` Edge Function's
+  /// owner payload (no password — the server already verified it).
+  static Villa buildVillaFromOwnerMap(Map<String, dynamic> d) {
+    final ownerId = (d['Id'] as num?)?.toInt() ?? 0;
+    return Villa(
+      id: '$ownerIdPrefix$ownerId',
+      villaNumber: ((d['VillaNo'] as String?) ?? '').trim(),
+      ownerName: ((d['Name'] as String?) ?? '').trim(),
+      phoneNumber: ((d['Phone'] as String?) ?? '').trim(),
+      area: (d['VillaArea'] as num?)?.toDouble() ?? 0,
+      annualFee: (d['InitialMaintenance'] as num?)?.toDouble() ?? 0,
+      depositAmount: (d['DepositPaid'] as num?)?.toDouble() ?? 0,
+      password: '', // unused client-side; server verifies credentials
+      isFirstLogin: (d['IsFirstLogin'] as bool?) ?? false,
+      createdAt: DateTime.tryParse((d['CreatedAt'] as String?) ?? '') ??
+          DateTime.now(),
+    );
+  }
+
+  /// Change the signed-in owner's password. The current password is verified
+  /// server-side (SECURITY DEFINER RPC), scoped to the caller's own owner_id.
+  Future<void> setOwnPassword(String current, String newPassword) async {
+    await _db.callRpc('owners_app_set_password', {
+      'p_current': current,
+      'p_new': newPassword,
+    });
+  }
+
+  /// Save the signed-in owner's FCM token (scoped server-side to own owner_id).
+  Future<void> saveOwnFcm(String token) async {
+    await _db.callRpc('owners_app_save_fcm', {'p_token': token});
+  }
+
   /// Rebuild a Villa session object by owner int ID (used to restore session).
   Future<Villa?> rebuildVillaById(int ownerId) async {
     final docs = await _db.queryEq(_owners, 'Id', ownerId, limit: 1);

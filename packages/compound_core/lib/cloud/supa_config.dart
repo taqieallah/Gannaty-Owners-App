@@ -43,8 +43,16 @@ class SupaConfig {
   }
 
   /// Sets (or clears) the owner token used for subsequent Supabase requests.
+  ///
+  /// Also authorizes Realtime with the token — in third-party-auth mode the
+  /// token is not propagated to the Realtime socket automatically, so without
+  /// this RLS filters out every change event and the client only sees updates
+  /// on a fresh REST fetch (i.e. after a restart).
   static void setOwnerToken(String? token) {
     _ownerToken = (token != null && token.isNotEmpty) ? token : null;
+    try {
+      client.realtime.setAuth(_ownerToken);
+    } catch (_) {/* client not ready yet — applied on next set */}
   }
 
   static String? get ownerToken => _ownerToken;

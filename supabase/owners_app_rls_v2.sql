@@ -19,6 +19,18 @@
 
 create extension if not exists pgcrypto;
 
+-- ── Idempotent teardown ─────────────────────────────────────────────────────
+-- Drop the policies that depend on the helper functions, then drop the helper
+-- whose return type is changing (int -> text on re-run), so this file can be
+-- run repeatedly without a "cannot change return type" error.
+drop policy if exists owners_app_read on public.documents;
+drop policy if exists owners_app_read_own on public.documents;
+drop policy if exists owners_app_read_shared on public.documents;
+drop policy if exists owners_app_insert_requests on public.documents;
+drop policy if exists owners_app_update on public.documents;
+drop policy if exists owners_app_request_uploads on storage.objects;
+drop function if exists public.jwt_owner_id();
+
 -- ── Helpers ─────────────────────────────────────────────────────────────────
 
 -- The owner_id claim from the caller's JWT, as TEXT (null when absent/empty).

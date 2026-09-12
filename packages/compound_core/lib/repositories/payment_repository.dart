@@ -21,11 +21,13 @@ class PaymentRepository {
   }
 
   /// Stream payments for a specific villa (client use), sorted in Dart.
+  ///
+  /// Scoped server-side to this villa so the client never downloads other
+  /// owners' payments (egress-safe on the shared workspace).
   Stream<List<Payment>> watchByVilla(String villaId) {
-    return _db.watch(_collection).map((docs) {
+    return _db.watchWhere(_collection, 'villaId', villaId).map((docs) {
       final payments = docs
           .map((d) => Payment.fromMap(d.id, d.data))
-          .where((p) => p.villaId == villaId)
           .toList();
       payments.sort((a, b) {
         final y = b.year.compareTo(a.year);

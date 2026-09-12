@@ -198,10 +198,11 @@ class OwnerAccountRepository {
   }
 
   /// Real-time stream of all transactions for an owner, newest first.
+  ///
+  /// Scoped server-side by OwnerId so the client never downloads the whole
+  /// `owner_transactions` collection (egress-safe on the shared workspace).
   Stream<List<OwnerLedgerEntry>> watchTransactions(int ownerId) {
-    return _db.watch(_tx).map((docs) => _sortTx(
-        docs.where((d) => (d.data['OwnerId'] as num?)?.toInt() == ownerId)
-            .toList()));
+    return _db.watchWhere(_tx, 'OwnerId', ownerId).map(_sortTx);
   }
 
   /// All transactions for an owner, sorted newest first.
@@ -233,7 +234,9 @@ class OwnerAccountRepository {
     required double txAmount,
     String? txDescription,
   }) async {
-    final all = await _db.list(_revenues);
+    // Scoped to the transaction's own date instead of downloading every
+    // revenue row (egress-safe on the shared workspace).
+    final all = await _db.queryEq(_revenues, 'RevenueDate', txDate);
     final wantedDesc = (txDescription ?? '').trim();
     final hi = '$txDate';
     return all
@@ -261,10 +264,6 @@ class OwnerAccountRepository {
     String? txDescription,
   }) async {
     try {
-      final docs = await _db.list(_attachments);
-      final total = docs.length;
-      if (total == 0) return (null, 'المجموعة فارغة (0 مستند)');
-
       final linkedRevenueId = _extractRevenueIdFromNotes(txNotes);
       final revenueIdsByReceipt = txRefNo == null
           ? const <int>[]
@@ -278,24 +277,25 @@ class OwnerAccountRepository {
                   txDescription: txDescription,
                 );
 
-      final ids = <String>[];
+      final revenueIds = <int>{
+        if (linkedRevenueId != null) linkedRevenueId,
+        ...revenueIdsByReceipt,
+        ...revenueIdsByMatch,
+      };
+
+      // Fetch ONLY attachments tagged with a candidate entity id (this tx or a
+      // linked revenue) instead of downloading the whole attachments
+      // collection — the dominant egress source when viewing a receipt.
+      final candidateIds = <int>{txId, ...revenueIds};
+      final docs = <SupaDoc>[];
+      for (final eid in candidateIds) {
+        docs.addAll(await _db.queryEq(_attachments, 'EntityId', eid));
+      }
+      if (docs.isEmpty) return (null, 'لا يوجد مرفق مرتبط بهذه الحركة');
+
       for (final doc in docs) {
-        final eidRaw = doc.data['EntityId'];
         final et = (doc.data['EntityType'] ?? '').toString();
-        ids.add('$et:$eidRaw');
-
-        final isOwnerTx = et == 'OWNER_TX';
-        final isLinkedRevenue = linkedRevenueId != null && et == 'REVENUE';
-        final isRevenueByReceipt =
-            revenueIdsByReceipt.isNotEmpty && et == 'REVENUE';
-        final isRevenueByMatch = revenueIdsByMatch.isNotEmpty && et == 'REVENUE';
-        if (!isOwnerTx &&
-            !isLinkedRevenue &&
-            !isRevenueByReceipt &&
-            !isRevenueByMatch) {
-          continue;
-        }
-
+        final eidRaw = doc.data['EntityId'];
         int? eid;
         if (eidRaw is num) {
           eid = eidRaw.toInt();
@@ -303,10 +303,10 @@ class OwnerAccountRepository {
           eid = int.tryParse(eidRaw);
         }
         if (eid == null) continue;
-        if (isOwnerTx && eid != txId) continue;
-        if (isLinkedRevenue && eid != linkedRevenueId) continue;
-        if (isRevenueByReceipt && !revenueIdsByReceipt.contains(eid)) continue;
-        if (isRevenueByMatch && !revenueIdsByMatch.contains(eid)) continue;
+
+        final isOwnerTx = et == 'OWNER_TX' && eid == txId;
+        final isRevenue = et == 'REVENUE' && revenueIds.contains(eid);
+        if (!isOwnerTx && !isRevenue) continue;
 
         final url = (doc.data['DownloadUrl'] ?? '').toString().trim();
         if (url.isNotEmpty) return (url, '');
@@ -314,12 +314,9 @@ class OwnerAccountRepository {
         if (sp.isNotEmpty) return (sp, '');
       }
 
-      final preview = ids.take(5).join(' | ');
       return (
         null,
-        'وُجد $total مستند - معرّف الحركة: $txId'
-            '${txRefNo != null ? '\nرقم الإيصال: $txRefNo' : ''}'
-            '\nالمستندات: $preview',
+        'لا يوجد مرفق مطابق (تم فحص ${docs.length} مرفق مرتبط - الحركة $txId)',
       );
     } catch (e) {
       return (null, 'خطأ: $e');

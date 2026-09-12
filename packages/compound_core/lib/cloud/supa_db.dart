@@ -144,6 +144,58 @@ class SupaDb {
     return controller.stream;
   }
 
+  /// Realtime stream of ONLY the documents in [collection] where [field]
+  /// equals [value]. Emits the scoped list on connect and re-fetches (scoped,
+  /// via [queryEq]) on every change to the collection.
+  ///
+  /// Unlike [watch], this never downloads the whole collection: the realtime
+  /// ping is tiny and the re-fetch pulls only the caller's own rows. This is
+  /// the egress-safe path for per-owner client streams (payments, service
+  /// requests, settlements, transactions) on the shared workspace.
+  Stream<List<SupaDoc>> watchWhere(
+    String collection,
+    String field,
+    Object? value,
+  ) {
+    final controller = StreamController<List<SupaDoc>>();
+    RealtimeChannel? channel;
+    Timer? debounce;
+
+    Future<void> emit() async {
+      try {
+        controller.add(await queryEq(collection, field, value));
+      } catch (_) {/* keep stream alive on transient errors */}
+    }
+
+    controller.onListen = () {
+      emit();
+      channel = _c
+          .channel('docs:$_uid:$collection:$field=$value')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'documents',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'collection',
+              value: collection,
+            ),
+            // Coalesce bursts (e.g. an ERP batch write) into one scoped refetch.
+            callback: (_) {
+              debounce?.cancel();
+              debounce = Timer(const Duration(milliseconds: 600), emit);
+            },
+          )
+          .subscribe();
+    };
+    controller.onCancel = () async {
+      debounce?.cancel();
+      final ch = channel;
+      if (ch != null) await _c.removeChannel(ch);
+    };
+    return controller.stream;
+  }
+
   String _generateId() {
     final ts = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
     final rnd = (Random().nextInt(1 << 32)).toRadixString(36);

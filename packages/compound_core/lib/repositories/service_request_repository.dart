@@ -21,12 +21,18 @@ class ServiceRequestRepository {
       _db.watch(_collection).map(_sortedDesc);
 
   /// Stream requests for a specific client phone (client use).
+  ///
+  /// Scoped server-side to the owner's own `clientPhone` (the app writes it
+  /// from `villa.phoneNumber`, the same value passed here) so the client never
+  /// downloads other owners' requests. The normalized-phone compare is kept as
+  /// a defensive filter (it can only narrow the already-scoped result).
   Stream<List<ServiceRequest>> watchByPhone(String phone) {
     final normalizedPhone = VillaRepository.normalizePhone(phone);
-    return _db.watch(_collection).map((docs) => _sortedDesc(docs)
-        .where((r) =>
-            VillaRepository.normalizePhone(r.clientPhone) == normalizedPhone)
-        .toList());
+    return _db.watchWhere(_collection, 'clientPhone', phone).map((docs) =>
+        _sortedDesc(docs)
+            .where((r) =>
+                VillaRepository.normalizePhone(r.clientPhone) == normalizedPhone)
+            .toList());
   }
 
   Future<String> add(ServiceRequest request) =>

@@ -21,11 +21,12 @@ class AnnualSettlementRepository {
   }
 
   /// Stream settlements for a specific villa, newest year first.
+  ///
+  /// Scoped server-side to this villa (egress-safe on the shared workspace).
   Stream<List<AnnualSettlement>> watchByVilla(String villaId) {
-    return _db.watch(_collection).map((docs) {
+    return _db.watchWhere(_collection, 'villaId', villaId).map((docs) {
       final items = docs
           .map((d) => AnnualSettlement.fromMap(d.id, d.data))
-          .where((s) => s.villaId == villaId)
           .toList();
       items.sort((a, b) => b.year.compareTo(a.year));
       return items;

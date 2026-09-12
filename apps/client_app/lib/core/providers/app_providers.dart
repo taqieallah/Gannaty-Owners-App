@@ -56,6 +56,12 @@ class SessionController extends AsyncNotifier<Villa?> {
     }
     try {
       final map = (json.decode(ownerJson) as Map).cast<String, dynamic>();
+      // Trust the token's owner_id over a possibly-stale saved profile (an old
+      // login may have stored a precision-lost Id).
+      final tokenOwnerId = _ownerIdFromToken(token);
+      if (tokenOwnerId != null && tokenOwnerId.isNotEmpty) {
+        map['Id'] = tokenOwnerId;
+      }
       SupaConfig.setOwnerToken(token);
       // Keep the device token fresh for payment push (best-effort, no await).
       unawaited(_refreshOwnerFcm());
@@ -207,6 +213,20 @@ class SessionController extends AsyncNotifier<Villa?> {
     await prefs.remove(_ownerMapKey);
     await prefs.remove(_villaIdKey);
     await prefs.remove(_villaPhoneKey);
+  }
+
+  /// The exact `owner_id` claim (as text) from the JWT, or null.
+  String? _ownerIdFromToken(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = json.decode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      ) as Map;
+      return payload['owner_id']?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// True if the JWT has an `exp` at least 60s in the future.

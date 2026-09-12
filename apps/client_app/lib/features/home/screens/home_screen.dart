@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/admin_contact.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/app_text.dart';
@@ -168,6 +169,10 @@ class HomeScreen extends ConsumerWidget {
             error: (_, __) => const SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
+          if ((accountAsync.asData?.value?.balance ?? 0) > 0.01) ...[
+            _DuesReminder(amount: accountAsync.asData!.value!.balance),
+            const SizedBox(height: 16),
+          ],
           requests.when(
             data: (items) => Card(
               child: Padding(
@@ -341,6 +346,64 @@ class _WelcomeCard extends StatelessWidget {
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                 ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DuesReminder extends StatelessWidget {
+  const _DuesReminder({required this.amount});
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.danger.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+                color: AppTheme.danger.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.notifications_active_rounded,
+                color: AppTheme.danger, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('تذكير بالمستحقات',
+                    style: t.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(
+                  'عليك مبلغ ${amount.abs().toStringAsFixed(0)} جنيه — تواصل مع الإدارة للسداد.',
+                  style: t.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF25D366),
+                foregroundColor: Colors.white),
+            tooltip: 'تواصل عبر واتساب',
+            icon: const Icon(Icons.chat_rounded),
+            onPressed: () => AdminContact.openWhatsApp(
+                message:
+                    'السلام عليكم، أرغب في الاستفسار/السداد لمستحقات فيلا.'),
           ),
         ],
       ),

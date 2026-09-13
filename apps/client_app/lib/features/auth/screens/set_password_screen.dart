@@ -97,6 +97,9 @@ class _SetPasswordScreenState extends ConsumerState<SetPasswordScreen> {
                         TextFormField(
                           controller: _newPasswordController,
                           obscureText: true,
+                          // Latin/digit input stays LTR inside the RTL layout.
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.left,
                           decoration: InputDecoration(
                             labelText: t.newPassword,
                             prefixIcon: const Icon(Icons.lock_rounded),
@@ -115,6 +118,8 @@ class _SetPasswordScreenState extends ConsumerState<SetPasswordScreen> {
                         TextFormField(
                           controller: _confirmPasswordController,
                           obscureText: true,
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.left,
                           decoration: InputDecoration(
                             labelText: t.confirmPassword,
                             prefixIcon: const Icon(Icons.verified_user_rounded),

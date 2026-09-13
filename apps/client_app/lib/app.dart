@@ -6,6 +6,7 @@ import 'core/notifications/client_notification_bootstrap.dart';
 import 'core/router/app_router.dart';
 import 'core/settings/app_settings.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/screens/language_screen.dart';
 import 'shared/widgets/offline_banner.dart';
 
 class ClientApp extends ConsumerWidget {
@@ -33,6 +34,11 @@ class ClientApp extends ConsumerWidget {
       supportedLocales: const [Locale('ar'), Locale('en')],
       routerConfig: router,
       builder: (context, child) {
+        // On the very first launch the owner picks a language before anything
+        // else; the router keeps running untouched underneath.
+        if (!settings.languageChosen) {
+          return const LanguageScreen();
+        }
         return ClientNotificationBootstrap(
           child: Directionality(
             textDirection: settings.textDirection,

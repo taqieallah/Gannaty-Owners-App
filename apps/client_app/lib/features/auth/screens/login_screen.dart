@@ -115,17 +115,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          width: 76,
-                          height: 76,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.sand,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.home_work_rounded,
-                            color: AppTheme.cognac,
-                            size: 38,
+                        Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.asset(
+                              'assets/images/gannaty_icon.png',
+                              width: 84,
+                              height: 84,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -142,9 +139,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
+                          // Phone numbers and passwords are latin/digit input:
+                          // keep them left-to-right even inside the RTL layout.
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.left,
+                          autofillHints: const [AutofillHints.telephoneNumber],
                           decoration: InputDecoration(
                             labelText: t.phone,
                             prefixIcon: const Icon(Icons.phone_rounded),
+                            hintTextDirection: TextDirection.ltr,
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
@@ -157,9 +160,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: true,
+                          textDirection: TextDirection.ltr,
+                          textAlign: TextAlign.left,
                           decoration: InputDecoration(
                             labelText: t.password,
                             prefixIcon: const Icon(Icons.lock_rounded),
+                            hintTextDirection: TextDirection.ltr,
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {

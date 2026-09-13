@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:compound_core/compound_core.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ReceiptPreviewPage extends StatefulWidget {
   const ReceiptPreviewPage({
@@ -20,7 +22,11 @@ class ReceiptPreviewPage extends StatefulWidget {
 }
 
 class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
-  late final Future<_PreviewData> _future = _load();
+  _PreviewData? _data;
+  late final Future<_PreviewData> _future = _load()
+    ..then((d) {
+      if (mounted) setState(() => _data = d);
+    }).ignore();
 
   Future<_PreviewData> _load() async {
     final source = widget.source.trim();
@@ -61,6 +67,14 @@ class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
     }
   }
 
+  Future<void> _share(_PreviewData d) async {
+    final dir = await getTemporaryDirectory();
+    final ext = _isPdf(d) ? 'pdf' : 'jpg';
+    final file = File('${dir.path}/receipt_${DateTime.now().millisecondsSinceEpoch}.$ext');
+    await file.writeAsBytes(d.bytes, flush: true);
+    await Share.shareXFiles([XFile(file.path)], subject: widget.title);
+  }
+
   bool _isPdf(_PreviewData d) {
     final name = d.name.toLowerCase();
     if (name.endsWith('.pdf')) return true;
@@ -77,7 +91,17 @@ class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.title)),
+        appBar: AppBar(
+          title: Text(widget.title),
+          actions: [
+            if (_data != null)
+              IconButton(
+                icon: const Icon(Icons.share_rounded),
+                tooltip: 'مشاركة الإيصال',
+                onPressed: () => _share(_data!),
+              ),
+          ],
+        ),
         body: FutureBuilder<_PreviewData>(
           future: _future,
           builder: (context, snap) {
@@ -90,8 +114,7 @@ class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
             final data = snap.data!;
             if (_isPdf(data)) {
               return PdfPreview(
-                allowPrinting: false,
-                allowSharing: true,
+                useActions: false, // hide the internal print/toolbar
                 canChangeOrientation: false,
                 canChangePageFormat: false,
                 build: (_) async => data.bytes,

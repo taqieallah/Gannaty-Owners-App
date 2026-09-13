@@ -31,6 +31,8 @@ dependencies:
   url_launcher: ^6.3.1
   printing: ^5.14.2
   pdf: ^3.11.1
+  share_plus: ^10.1.4
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

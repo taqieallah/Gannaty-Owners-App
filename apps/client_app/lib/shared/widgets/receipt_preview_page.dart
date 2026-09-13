@@ -3,9 +3,8 @@ import 'dart:typed_data';
 
 import 'package:compound_core/compound_core.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
 
 class ReceiptPreviewPage extends StatefulWidget {
   const ReceiptPreviewPage({
@@ -67,12 +66,24 @@ class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
     }
   }
 
+  /// Hands the receipt to the OS share sheet. Image receipts are wrapped in a
+  /// single-page PDF first so every receipt shares through the same path.
   Future<void> _share(_PreviewData d) async {
-    final dir = await getTemporaryDirectory();
-    final ext = _isPdf(d) ? 'pdf' : 'jpg';
-    final file = File('${dir.path}/receipt_${DateTime.now().millisecondsSinceEpoch}.$ext');
-    await file.writeAsBytes(d.bytes, flush: true);
-    await Share.shareXFiles([XFile(file.path)], subject: widget.title);
+    final bytes = _isPdf(d) ? d.bytes : await _imageToPdf(d.bytes);
+    await Printing.sharePdf(bytes: bytes, filename: 'receipt.pdf');
+  }
+
+  Future<Uint8List> _imageToPdf(Uint8List image) async {
+    final doc = pw.Document();
+    final page = pw.MemoryImage(image);
+    doc.addPage(
+      pw.Page(
+        build: (_) => pw.Center(
+          child: pw.Image(page, fit: pw.BoxFit.contain),
+        ),
+      ),
+    );
+    return doc.save();
   }
 
   bool _isPdf(_PreviewData d) {

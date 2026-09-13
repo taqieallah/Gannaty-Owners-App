@@ -140,6 +140,7 @@ class SessionController extends AsyncNotifier<Villa?> {
     final prefs = await ref.read(sharedPreferencesProvider.future);
     await _clearSession(prefs);
     SupaConfig.setOwnerToken(null);
+    SupaStorage.clearCache();
     state = const AsyncData(null);
   }
 

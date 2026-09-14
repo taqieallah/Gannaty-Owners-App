@@ -1,5 +1,10 @@
 # Gannaty — Compound Management System (Project Overview)
 
+> **The canonical, system-wide handoff document now lives in the ERP repo:**
+> `gannaty-macos-important-files/PROJECT_OVERVIEW.md`. It covers both repos,
+> how to clone them, the backend, and the current state. Read that first; this
+> file is the owners-app-specific companion and some of it is older.
+>
 > Handoff document for engineers **and AI agents**. It describes the whole
 > system end‑to‑end so you can make changes safely without re‑discovering the
 > architecture. Arabic‑first, RTL product for **اتحاد شاغلي كمبوند جنتي**.
@@ -194,7 +199,7 @@ biometric unlock • push notification on a new payment.
 - The ERP compound module and the owners app must use the **same collection
   names** (e.g. `serviceRequests`, not `compound_service_requests`).
 - Don't push to git or deploy without being asked. Commit trailer:
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
 ---
 

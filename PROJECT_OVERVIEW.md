@@ -16,11 +16,12 @@
 | App | Repo / path | Platform | Users | Backend |
 |---|---|---|---|---|
 | **Owners app** (`client_app`) | `D:\Gannaty-Owners-App` (this repo), `apps/client_app` | Android (primary), iOS/desktop possible | ~84 compound owners | **Supabase** (branch `supabase`) |
-| **Admin app** (`admin_app`) | same repo, `apps/admin_app` | — | compound admin | Firebase (legacy, not the focus) |
 | **ERP** (compound management) | `D:\gannaty-macos-important-files` | Windows desktop (Flutter/CMake) | 1 admin (the union manager) | **Supabase** (branch `supabase`) |
 
-- The owners app is a **melos monorepo**: `apps/client_app`, `apps/admin_app`,
-  shared package `packages/compound_core` (models, repositories, cloud layer).
+- The owners app is a **melos monorepo**: `apps/client_app` and the shared
+  package `packages/compound_core` (models, repositories, cloud layer). The old
+  Firebase `admin_app` and `functions/` were removed; the ERP replaced the
+  admin app and Supabase Edge Functions replaced the Cloud Functions.
 - **The owners app and the ERP share ONE Supabase project** — same project,
   same `documents` table, same workspace uid. Their traffic shares one egress
   budget. This is the single most important fact for cost/security.

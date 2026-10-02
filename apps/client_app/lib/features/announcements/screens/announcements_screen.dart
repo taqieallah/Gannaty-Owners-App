@@ -8,6 +8,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 class AnnouncementsScreen extends ConsumerWidget {
   const AnnouncementsScreen({super.key});
@@ -54,7 +55,7 @@ class AnnouncementsScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (error, stackTrace) => Center(child: Text(t.failedLoadAnnouncements)),
       ),
     );

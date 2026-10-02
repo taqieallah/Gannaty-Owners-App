@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -28,7 +27,6 @@ class NotificationService {
 
   static FirebaseMessaging? _messaging;
   static FlutterLocalNotificationsPlugin? _localNotifications;
-  static StreamSubscription<String>? _tokenRefreshSub;
 
   static const _androidChannelId = 'compound_high_importance';
   static const _androidChannelName = 'Compound Notifications';
@@ -103,69 +101,6 @@ class NotificationService {
     } catch (_) {
       return null;
     }
-  }
-
-  /// Save the admin's FCM token to /fcmTokens/{uid}.
-  static Future<void> saveAdminToken(String uid) async {
-    if (!_isSupported || _messaging == null) return;
-
-    final token = await _messaging!.getToken();
-    if (token == null) return;
-
-    await FirebaseFirestore.instance
-        .collection('fcmTokens')
-        .doc(uid)
-        .set({
-          'token': token,
-          'role': 'admin',
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
-    await _tokenRefreshSub?.cancel();
-    _tokenRefreshSub = _messaging!.onTokenRefresh.listen((newToken) {
-      FirebaseFirestore.instance
-          .collection('fcmTokens')
-          .doc(uid)
-          .update({'token': newToken, 'updatedAt': FieldValue.serverTimestamp()});
-    });
-  }
-
-  /// Remove the admin's FCM token from Firestore (call on logout).
-  static Future<void> clearAdminToken(String uid) async {
-    await _tokenRefreshSub?.cancel();
-    _tokenRefreshSub = null;
-    await FirebaseFirestore.instance.collection('fcmTokens').doc(uid).delete();
-  }
-
-  /// Save the client's FCM token to their villa document.
-  static Future<void> saveClientToken(String villaId) async {
-    if (!_isSupported || _messaging == null) return;
-
-    final token = await _messaging!.getToken();
-    if (token == null) return;
-
-    await FirebaseFirestore.instance
-        .collection('villas')
-        .doc(villaId)
-        .update({'fcmToken': token});
-
-    await _tokenRefreshSub?.cancel();
-    _tokenRefreshSub = _messaging!.onTokenRefresh.listen((newToken) {
-      FirebaseFirestore.instance
-          .collection('villas')
-          .doc(villaId)
-          .update({'fcmToken': newToken});
-    });
-  }
-
-  /// Remove the client's FCM token from their villa document (call on logout).
-  static Future<void> clearClientToken(String villaId) async {
-    await _tokenRefreshSub?.cancel();
-    _tokenRefreshSub = null;
-    await FirebaseFirestore.instance
-        .collection('villas')
-        .doc(villaId)
-        .update({'fcmToken': FieldValue.delete()});
   }
 
   static Future<void> showSimpleNotification({

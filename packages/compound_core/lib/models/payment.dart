@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../utils/cloud_dates.dart';
@@ -43,9 +42,6 @@ class Payment extends Equatable {
     return '${months[month - 1]} $year';
   }
 
-  factory Payment.fromFirestore(DocumentSnapshot doc) =>
-      Payment.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-
   factory Payment.fromMap(String id, Map<String, dynamic> data) {
     return Payment(
       id: id,
@@ -71,12 +67,12 @@ class Payment extends Equatable {
         'month': month,
         'year': year,
         'amount': amount,
-        'dueDate': Timestamp.fromDate(dueDate),
+        'dueDate': dueDate.toIso8601String(),
         'isPaid': isPaid,
         'description': description,
         'receiptNumber': receiptNumber,
         'attachments': attachments,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
       };
 
   Map<String, dynamic> toMap() => {

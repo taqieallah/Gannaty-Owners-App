@@ -6,6 +6,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/app_text.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
 import '../providers/notification_history_provider.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 String _bucketOf(DateTime d) {
   final now = DateTime.now();
@@ -89,7 +90,7 @@ class NotificationHistoryScreen extends ConsumerWidget {
           }
           return ListView(children: children);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (_, __) => const SizedBox.shrink(),
       ),
     );

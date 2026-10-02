@@ -1,4 +1,4 @@
-﻿import 'package:compound_core/compound_core.dart';
+import 'package:compound_core/compound_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,22 +40,13 @@ class _ClientShellState extends ConsumerState<ClientShell> {
         if (_seenTxIds == null) {
           // First emission - just record what we have, don't notify.
           _seenTxIds = currentIds;
-          ref.invalidate(ownerAccountProvider);
-          ref.invalidate(ownerTransactionsProvider);
           return;
         }
 
         final previousIds = _seenTxIds!;
-        final hasAnyChange = currentIds.length != previousIds.length ||
-            !currentIds.containsAll(previousIds);
-
-        if (hasAnyChange) {
-          ref.invalidate(ownerAccountProvider);
-          ref.invalidate(ownerTransactionsProvider);
-        }
-
-        final newEntries =
-            entries.where((e) => !previousIds.contains(e.id)).toList();
+        final newEntries = entries
+            .where((e) => !previousIds.contains(e.id))
+            .toList();
         _seenTxIds = currentIds;
 
         for (final entry in newEntries) {
@@ -82,8 +73,6 @@ class _ClientShellState extends ConsumerState<ClientShell> {
     );
 
     // Refresh balance card and transaction list automatically.
-    ref.invalidate(ownerAccountProvider);
-    ref.invalidate(ownerTransactionsProvider);
 
     // Defer the sheet to the next frame to avoid build-phase conflicts.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -108,7 +97,8 @@ class _ClientShellState extends ConsumerState<ClientShell> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(appSettingsProvider).value ??
+    final settings =
+        ref.watch(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final t = AppText(settings);
     final location = GoRouterState.of(context).matchedLocation;
@@ -119,12 +109,12 @@ class _ClientShellState extends ConsumerState<ClientShell> {
     final index = location.startsWith('/profile')
         ? 4
         : location.startsWith('/announcements')
-            ? 3
-            : location.startsWith('/requests')
-                ? 2
-                : location.startsWith('/payments')
-                    ? 1
-                    : 0;
+        ? 3
+        : location.startsWith('/requests')
+        ? 2
+        : location.startsWith('/payments')
+        ? 1
+        : 0;
 
     final bg = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFF140D09)
@@ -141,7 +131,8 @@ class _ClientShellState extends ConsumerState<ClientShell> {
         }
 
         final now = DateTime.now();
-        final shouldExit = _lastBackPressAt != null &&
+        final shouldExit =
+            _lastBackPressAt != null &&
             now.difference(_lastBackPressAt!) < const Duration(seconds: 2);
         if (shouldExit) {
           await SystemNavigator.pop();
@@ -189,7 +180,9 @@ class _ClientShellState extends ConsumerState<ClientShell> {
                     ),
                     child: Center(
                       child: Text(
-                        notifHistory.length > 9 ? '9+' : '${notifHistory.length}',
+                        notifHistory.length > 9
+                            ? '9+'
+                            : '${notifHistory.length}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 8,
@@ -247,7 +240,7 @@ class _ClientShellState extends ConsumerState<ClientShell> {
                   ),
                   Expanded(
                     child: _NavItem(
-                      label: t.announcements,
+                      label: t.announcementsShort,
                       icon: Icons.campaign_rounded,
                       selected: index == 3,
                       onTap: () => context.go('/announcements'),
@@ -328,4 +321,3 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-

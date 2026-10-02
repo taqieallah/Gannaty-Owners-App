@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'owner_statement.dart';
 
@@ -55,31 +54,13 @@ class OwnerAccount {
   /// المديونية الكاملة — من الكشف المحسوب إن وُجد (يطابق الإكسيل تمامًا).
   /// Positive = owner owes, Negative = compound owes owner (credit)
   double get balance =>
-      statement?.closingBalance ??
-      (maintenance +
-          openingBalance -
-          depositReturn +
-          totalCharges -
-          totalPayments);
+      maintenance +
+      openingBalance -
+      depositReturn +
+      totalCharges -
+      totalPayments;
 
   bool get isCredit => balance < 0;
-
-  static OwnerAccount fromFirestore({
-    required DocumentSnapshot<Map<String, dynamic>> ownerDoc,
-    required Map<String, Object?>? yearSettings,
-    required double totalCharges,
-    required double totalPayments,
-    required int year,
-    OwnerStatement? statement,
-  }) =>
-      fromMap(
-        ownerData: ownerDoc.data()!,
-        yearSettings: yearSettings,
-        totalCharges: totalCharges,
-        totalPayments: totalPayments,
-        year: year,
-        statement: statement,
-      );
 
   /// Backend-neutral builder from a plain owner data map (Supabase).
   static OwnerAccount fromMap({
@@ -108,8 +89,10 @@ class OwnerAccount {
       openingBalance: statement?.openingBalance ??
           (ys['OpeningBalance'] as num?)?.toDouble() ??
           0,
-      totalCharges: statement?.totalCharges ?? totalCharges,
-      totalPayments: statement?.totalPayments ?? totalPayments,
+      // Use the live transaction totals so additions and deletions are
+      // reflected before the ERP publishes the next precomputed statement.
+      totalCharges: totalCharges,
+      totalPayments: totalPayments,
       year: year,
       statement: statement,
     );

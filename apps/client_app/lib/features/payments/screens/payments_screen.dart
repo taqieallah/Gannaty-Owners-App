@@ -9,6 +9,7 @@ import '../../../core/settings/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
 import '../../../shared/widgets/owner_receipt_sheet.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 // ── Filter state ────────────────────────────────────────────────────────────
 
@@ -32,8 +33,9 @@ class _FilterNotifier extends Notifier<_FilterState> {
   void update(_FilterState Function(_FilterState) fn) => state = fn(state);
 }
 
-final _filterProvider =
-    NotifierProvider<_FilterNotifier, _FilterState>(_FilterNotifier.new);
+final _filterProvider = NotifierProvider<_FilterNotifier, _FilterState>(
+  _FilterNotifier.new,
+);
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 
@@ -46,13 +48,16 @@ class PaymentsScreen extends ConsumerWidget {
     final accountAsync = ref.watch(ownerAccountProvider);
     final txAsync = ref.watch(ownerTransactionsStreamProvider);
     final filterState = ref.watch(_filterProvider);
-    final settings = ref.watch(appSettingsProvider).value ??
+    final settings =
+        ref.watch(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final t = AppText(settings);
 
-    // Auto-refresh balance when stream updates.
-    ref.listen(ownerTransactionsStreamProvider, (_, next) {
-      if (next.hasValue) ref.invalidate(ownerAccountProvider);
+    // The ERP publishes the statement signal after both additions and
+    // deletions. Reconnect the transaction stream on that event so the list
+    // updates immediately without polling the database.
+    ref.listen(ownerStatementSignalProvider, (_, next) {
+      if (next.hasValue) ref.invalidate(ownerTransactionsStreamProvider);
     });
 
     return ClientPageScaffold(
@@ -69,7 +74,7 @@ class PaymentsScreen extends ConsumerWidget {
             loading: () => const Card(
               child: Padding(
                 padding: EdgeInsets.all(18),
-                child: Center(child: CircularProgressIndicator()),
+                child: SkeletonList(count: 2),
               ),
             ),
             error: (_, __) => const SizedBox.shrink(),
@@ -85,7 +90,7 @@ class PaymentsScreen extends ConsumerWidget {
             loading: () => const Card(
               child: Padding(
                 padding: EdgeInsets.all(18),
-                child: Center(child: CircularProgressIndicator()),
+                child: SkeletonList(count: 2),
               ),
             ),
             error: (e, _) => Card(
@@ -99,13 +104,14 @@ class PaymentsScreen extends ConsumerWidget {
               final villaNo = villa?.villaNumber ?? '';
 
               // Build year list for filter chips.
-              final years = entries
-                  .map((e) => _txYear(e.txDate))
-                  .where((y) => y != null)
-                  .cast<int>()
-                  .toSet()
-                  .toList()
-                ..sort((a, b) => b.compareTo(a));
+              final years =
+                  entries
+                      .map((e) => _txYear(e.txDate))
+                      .where((y) => y != null)
+                      .cast<int>()
+                      .toSet()
+                      .toList()
+                    ..sort((a, b) => b.compareTo(a));
 
               // Apply filters.
               final filtered = entries.where((e) {
@@ -152,12 +158,14 @@ class PaymentsScreen extends ConsumerWidget {
                           color: AppTheme.success,
                           onTap: () => ref
                               .read(_filterProvider.notifier)
-                              .update((s) => s.copyWith(
-                                    filter: filterState.filter ==
-                                            _TxFilter.payments
-                                        ? _TxFilter.all
-                                        : _TxFilter.payments,
-                                  )),
+                              .update(
+                                (s) => s.copyWith(
+                                  filter:
+                                      filterState.filter == _TxFilter.payments
+                                      ? _TxFilter.all
+                                      : _TxFilter.payments,
+                                ),
+                              ),
                         ),
                         _FilterChip(
                           label: 'غير المسدد',
@@ -165,12 +173,14 @@ class PaymentsScreen extends ConsumerWidget {
                           color: AppTheme.danger,
                           onTap: () => ref
                               .read(_filterProvider.notifier)
-                              .update((s) => s.copyWith(
-                                    filter: filterState.filter ==
-                                            _TxFilter.charges
-                                        ? _TxFilter.all
-                                        : _TxFilter.charges,
-                                  )),
+                              .update(
+                                (s) => s.copyWith(
+                                  filter:
+                                      filterState.filter == _TxFilter.charges
+                                      ? _TxFilter.all
+                                      : _TxFilter.charges,
+                                ),
+                              ),
                         ),
                       ],
                     ),
@@ -187,9 +197,7 @@ class PaymentsScreen extends ConsumerWidget {
                             entries.isEmpty
                                 ? t.noPaidPaymentsYet
                                 : 'لا توجد نتائج للفلتر المحدد',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: Theme.of(context).colorScheme.outline,
                                 ),
@@ -201,6 +209,7 @@ class PaymentsScreen extends ConsumerWidget {
                     ..._buildGrouped(
                       context,
                       filtered,
+                      t: t,
                       ownerName: ownerName,
                       villaNo: villaNo,
                     ),
@@ -221,6 +230,7 @@ class PaymentsScreen extends ConsumerWidget {
   List<Widget> _buildGrouped(
     BuildContext context,
     List<OwnerLedgerEntry> entries, {
+    required AppText t,
     required String ownerName,
     required String villaNo,
   }) {
@@ -237,6 +247,7 @@ class PaymentsScreen extends ConsumerWidget {
         child: _TxYearCard(
           year: year,
           entries: grouped[year]!,
+          t: t,
           ownerName: ownerName,
           villaNo: villaNo,
         ),
@@ -272,8 +283,10 @@ class _OwnerSummaryCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: balanceColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
@@ -306,8 +319,7 @@ class _OwnerSummaryCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: balanceColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: balanceColor.withValues(alpha: 0.18)),
+                border: Border.all(color: balanceColor.withValues(alpha: 0.18)),
               ),
               child: Row(
                 children: [
@@ -320,9 +332,9 @@ class _OwnerSummaryCard extends StatelessWidget {
                   Text(
                     '${fmt.format(account.balance.abs())} جنيه',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: balanceColor,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: balanceColor,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
@@ -335,8 +347,11 @@ class _OwnerSummaryCard extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow(
-      {required this.label, required this.value, required this.color});
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final String label;
   final String value;
   final Color color;
@@ -351,18 +366,15 @@ class _SummaryRow extends StatelessWidget {
             width: 10,
             height: 10,
             margin: const EdgeInsetsDirectional.only(end: 8),
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           Expanded(child: Text(label)),
           Text(
             value,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -376,12 +388,14 @@ class _TxYearCard extends StatelessWidget {
   const _TxYearCard({
     required this.year,
     required this.entries,
+    required this.t,
     required this.ownerName,
     required this.villaNo,
   });
 
   final int year;
   final List<OwnerLedgerEntry> entries;
+  final AppText t;
   final String ownerName;
   final String villaNo;
 
@@ -443,6 +457,7 @@ class _TxYearCard extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _TxTile(
                   entry: e,
+                  t: t,
                   ownerName: ownerName,
                   villaNo: villaNo,
                 ),
@@ -460,11 +475,13 @@ class _TxYearCard extends StatelessWidget {
 class _TxTile extends StatelessWidget {
   const _TxTile({
     required this.entry,
+    required this.t,
     required this.ownerName,
     required this.villaNo,
   });
 
   final OwnerLedgerEntry entry;
+  final AppText t;
   final String ownerName;
   final String villaNo;
 
@@ -477,13 +494,17 @@ class _TxTile extends StatelessWidget {
 
     String dateStr = entry.txDate;
     try {
-      dateStr =
-          DateFormat('d MMM yyyy', 'ar').format(DateTime.parse(entry.txDate));
+      dateStr = DateFormat(
+        'd MMM yyyy',
+        t.settings.isArabic ? 'ar' : 'en',
+      ).format(DateTime.parse(entry.txDate));
     } catch (_) {}
 
-    final label = entry.category?.isNotEmpty == true
-        ? entry.category!
-        : (isPayment ? 'دفعة' : 'رسوم');
+    // Payments are always presented consistently as "Payment" / "سداد",
+    // even when the source transaction has an older category label.
+    final label = isPayment
+        ? t.payment
+        : (entry.category?.isNotEmpty == true ? entry.category! : t.charge);
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -498,9 +519,7 @@ class _TxTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: color.withValues(alpha: 0.22),
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
         ),
         child: Row(
           children: [
@@ -530,24 +549,23 @@ class _TxTile extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if ((entry.description ?? '').isNotEmpty)
                     Text(
                       entry.description!,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.outline,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   Text(
                     dateStr,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 ],
               ),
@@ -560,23 +578,25 @@ class _TxTile extends StatelessWidget {
                 Text(
                   '$amountStr جنيه',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.receipt_rounded,
-                        size: 12,
-                        color: Theme.of(context).colorScheme.outline),
+                    Icon(
+                      Icons.receipt_rounded,
+                      size: 12,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
                     const SizedBox(width: 3),
                     Text(
                       'عرض الإيصال',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                            fontSize: 10,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -665,15 +685,15 @@ class _VillaHeader extends StatelessWidget {
           Text(
             '$title - ${villa.villaNumber}',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.88),
-                ),
+              color: Colors.white.withValues(alpha: 0.88),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             '${villa.ownerName} - ${villa.phoneNumber}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.white),
           ),
         ],
       ),

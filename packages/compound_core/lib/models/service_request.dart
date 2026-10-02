@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../utils/cloud_dates.dart';
@@ -84,9 +83,6 @@ class ServiceRequest extends Equatable {
     required this.updatedAt,
   });
 
-  factory ServiceRequest.fromFirestore(DocumentSnapshot doc) =>
-      ServiceRequest.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-
   factory ServiceRequest.fromMap(String id, Map<String, dynamic> data) {
     return ServiceRequest(
       id: id,
@@ -118,8 +114,8 @@ class ServiceRequest extends Equatable {
         'status': status.firestoreValue,
         'imageUrl': imageUrl,
         'adminNote': adminNote,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
       };
 
   Map<String, dynamic> toMap() => {

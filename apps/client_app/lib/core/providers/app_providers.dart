@@ -6,24 +6,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
-final villaRepositoryProvider =
-    Provider<VillaRepository>((ref) => VillaRepository());
-final announcementRepositoryProvider =
-    Provider<AnnouncementRepository>((ref) => AnnouncementRepository());
-final paymentRepositoryProvider =
-    Provider<PaymentRepository>((ref) => PaymentRepository());
-final serviceRequestRepositoryProvider =
-    Provider<ServiceRequestRepository>((ref) => ServiceRequestRepository());
-final annualSettlementRepositoryProvider =
-    Provider<AnnualSettlementRepository>(
-      (ref) => AnnualSettlementRepository(),
-    );
+final villaRepositoryProvider = Provider<VillaRepository>(
+  (ref) => VillaRepository(),
+);
+final announcementRepositoryProvider = Provider<AnnouncementRepository>(
+  (ref) => AnnouncementRepository(),
+);
+final paymentRepositoryProvider = Provider<PaymentRepository>(
+  (ref) => PaymentRepository(),
+);
+final serviceRequestRepositoryProvider = Provider<ServiceRequestRepository>(
+  (ref) => ServiceRequestRepository(),
+);
+final annualSettlementRepositoryProvider = Provider<AnnualSettlementRepository>(
+  (ref) => AnnualSettlementRepository(),
+);
 
 final ownerAccountRepositoryProvider = Provider<OwnerAccountRepository>((ref) {
   return OwnerAccountRepository();
 });
-final sharedPreferencesProvider =
-    FutureProvider<SharedPreferences>((ref) => SharedPreferences.getInstance());
+final sharedPreferencesProvider = FutureProvider<SharedPreferences>(
+  (ref) => SharedPreferences.getInstance(),
+);
 
 final sessionControllerProvider =
     AsyncNotifierProvider<SessionController, Villa?>(SessionController.new);
@@ -79,7 +83,9 @@ class SessionController extends AsyncNotifier<Villa?> {
       final t = await NotificationService.currentToken();
       if (t == null || t.isEmpty) return;
       await ref.read(ownerAccountRepositoryProvider).saveOwnFcm(t);
-    } catch (_) {/* non-critical */}
+    } catch (_) {
+      /* non-critical */
+    }
   }
 
   // ── Sign in ──────────────────────────────────────────────────────────────
@@ -95,7 +101,10 @@ class SessionController extends AsyncNotifier<Villa?> {
       final fcm = await NotificationService.currentToken();
       final result = await auth
           .ownerLogin(
-              phone: phone.trim(), password: password.trim(), fcmToken: fcm)
+            phone: phone.trim(),
+            password: password.trim(),
+            fcmToken: fcm,
+          )
           .timeout(const Duration(seconds: 20));
 
       SupaConfig.setOwnerToken(result.accessToken);
@@ -165,12 +174,16 @@ class SessionController extends AsyncNotifier<Villa?> {
   }
 
   Future<String?> _setPassword(
-      Villa villa, String current, String newPassword) async {
+    Villa villa,
+    String current,
+    String newPassword,
+  ) async {
     if (!villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
       return 'الحساب غير مدعوم';
     }
     final ownerId = int.tryParse(
-        villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+      villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length),
+    );
     if (ownerId == null) return 'الحساب غير صالح';
     final repo = ref.read(ownerAccountRepositoryProvider);
     try {
@@ -185,7 +198,9 @@ class SessionController extends AsyncNotifier<Villa?> {
             final map = (json.decode(ownerJson) as Map).cast<String, dynamic>();
             map['IsFirstLogin'] = false;
             await prefs.setString(_ownerMapKey, json.encode(map));
-          } catch (_) {/* keep old cache */}
+          } catch (_) {
+            /* keep old cache */
+          }
         }
         state = AsyncData(updated);
       }
@@ -221,9 +236,11 @@ class SessionController extends AsyncNotifier<Villa?> {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return null;
-      final payload = json.decode(
-        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-      ) as Map;
+      final payload =
+          json.decode(
+                utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+              )
+              as Map;
       return payload['owner_id']?.toString();
     } catch (_) {
       return null;
@@ -235,9 +252,11 @@ class SessionController extends AsyncNotifier<Villa?> {
     try {
       final parts = token.split('.');
       if (parts.length != 3) return false;
-      final payload = json.decode(
-        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-      ) as Map;
+      final payload =
+          json.decode(
+                utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+              )
+              as Map;
       final exp = (payload['exp'] as num?)?.toInt();
       if (exp == null) return false;
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -299,9 +318,7 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
 final settlementsProvider = StreamProvider<List<AnnualSettlement>>((ref) {
   final villa = ref.watch(currentVillaProvider);
   if (villa == null) return const Stream.empty();
-  return ref
-      .watch(annualSettlementRepositoryProvider)
-      .watchByVilla(villa.id);
+  return ref.watch(annualSettlementRepositoryProvider).watchByVilla(villa.id);
 });
 
 /// The account year the owner is currently viewing (defaults to this year).
@@ -313,7 +330,8 @@ class SelectedOwnerYearNotifier extends Notifier<int> {
 
 final selectedOwnerYearProvider =
     NotifierProvider<SelectedOwnerYearNotifier, int>(
-        SelectedOwnerYearNotifier.new);
+      SelectedOwnerYearNotifier.new,
+    );
 
 /// Years that have a published statement for the signed-in owner (newest first).
 final ownerStatementYearsProvider = FutureProvider<List<int>>((ref) async {
@@ -322,7 +340,8 @@ final ownerStatementYearsProvider = FutureProvider<List<int>>((ref) async {
   final repo = ref.watch(ownerAccountRepositoryProvider);
   if (villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
     final ownerId = int.tryParse(
-        villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+      villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length),
+    );
     if (ownerId != null) return repo.availableStatementYears(ownerId);
   }
   return [DateTime.now().year];
@@ -334,6 +353,13 @@ final ownerStatementYearsProvider = FutureProvider<List<int>>((ref) async {
 /// statement change over realtime, so the balance stays live on every screen
 /// (not only the one that happens to be mounted).
 final ownerAccountProvider = FutureProvider<OwnerAccount?>((ref) async {
+  // Realtime drives updates (both streams below are watched, so this provider
+  // rebuilds on every event). The slow poll is only a safety net for a missed
+  // event; 3s polling re-read the owner and statement ~28k times a day.
+  final refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(refreshTimer.cancel);
   ref.watch(ownerTransactionsStreamProvider);
   ref.watch(ownerStatementSignalProvider);
   final villa = ref.watch(currentVillaProvider);
@@ -342,18 +368,22 @@ final ownerAccountProvider = FutureProvider<OwnerAccount?>((ref) async {
   final repo = ref.watch(ownerAccountRepositoryProvider);
   if (villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
     final ownerId = int.tryParse(
-        villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+      villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length),
+    );
     if (ownerId != null) return repo.fetchById(ownerId, year: year);
   }
   return repo.fetchByVillaNo(villa.villaNumber, year: year);
 });
 
 /// All ledger entries for the owner, sorted newest first (one-shot fetch).
-final ownerTransactionsProvider =
-    FutureProvider<List<OwnerLedgerEntry>>((ref) async {
+final ownerTransactionsProvider = FutureProvider<List<OwnerLedgerEntry>>((
+  ref,
+) async {
   final account = await ref.watch(ownerAccountProvider.future);
   if (account == null) return const [];
-  return ref.watch(ownerAccountRepositoryProvider).fetchTransactions(account.id);
+  return ref
+      .watch(ownerAccountRepositoryProvider)
+      .fetchTransactions(account.id);
 });
 
 /// Realtime signal that the owner's precomputed statement changed. The balance
@@ -366,22 +396,25 @@ final ownerStatementSignalProvider = StreamProvider<void>((ref) {
     return const Stream.empty();
   }
   final ownerId = int.tryParse(
-      villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+    villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length),
+  );
   if (ownerId == null) return const Stream.empty();
   return ref.watch(ownerAccountRepositoryProvider).watchStatements(ownerId);
 });
 
 /// Real-time stream of owner transactions — used to detect new entries and
 /// show push notifications while the app is in the foreground.
-final ownerTransactionsStreamProvider =
-    StreamProvider<List<OwnerLedgerEntry>>((ref) {
+final ownerTransactionsStreamProvider = StreamProvider<List<OwnerLedgerEntry>>((
+  ref,
+) {
   final villa = ref.watch(currentVillaProvider);
   if (villa == null) return const Stream.empty();
   if (!villa.id.startsWith(OwnerAccountRepository.ownerIdPrefix)) {
     return const Stream.empty();
   }
   final ownerId = int.tryParse(
-      villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length));
+    villa.id.substring(OwnerAccountRepository.ownerIdPrefix.length),
+  );
   if (ownerId == null) return const Stream.empty();
   return ref.watch(ownerAccountRepositoryProvider).watchTransactions(ownerId);
 });

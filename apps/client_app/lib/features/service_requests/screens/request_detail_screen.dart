@@ -8,6 +8,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 class RequestDetailScreen extends ConsumerWidget {
   const RequestDetailScreen({super.key, required this.requestId});
@@ -31,7 +32,7 @@ class RequestDetailScreen extends ConsumerWidget {
           }
           return _RequestDetailBody(request: request, t: t);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (_, __) => Center(child: Text(t.failedLoadRequests)),
       ),
     );

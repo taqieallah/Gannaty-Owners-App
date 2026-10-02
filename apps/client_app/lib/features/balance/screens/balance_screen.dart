@@ -10,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
 import '../../../shared/widgets/owner_receipt_sheet.dart';
 import '../statement_pdf.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 class BalanceScreen extends ConsumerWidget {
   const BalanceScreen({super.key});
@@ -21,22 +22,6 @@ class BalanceScreen extends ConsumerWidget {
     // Use the real-time stream so the list updates without a restart.
     final txAsync = ref.watch(ownerTransactionsStreamProvider);
 
-    // Whenever the transaction stream emits new data, re-fetch the balance.
-    ref.listen(ownerTransactionsStreamProvider, (prev, next) {
-      if (next.hasValue) {
-        ref.invalidate(ownerAccountProvider);
-        // Catch the ERP's statement rebuild (~1.5s later) even without a
-        // realtime UPDATE event.
-        Future.delayed(const Duration(seconds: 4), () {
-          try {
-            ref.invalidate(ownerAccountProvider);
-          } catch (_) {/* screen gone */}
-        });
-      }
-    });
-    ref.listen(ownerStatementSignalProvider, (prev, next) {
-      if (next.hasValue) ref.invalidate(ownerAccountProvider);
-    });
     // Default the selected year to the newest year that actually has a
     // published statement (avoids landing on a year with no data).
     ref.listen(ownerStatementYearsProvider, (prev, next) {
@@ -49,7 +34,8 @@ class BalanceScreen extends ConsumerWidget {
         });
       }
     });
-    final settings = ref.watch(appSettingsProvider).value ??
+    final settings =
+        ref.watch(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final t = AppText(settings);
 
@@ -64,13 +50,13 @@ class BalanceScreen extends ConsumerWidget {
           tooltip: 'تحميل كشف الحساب PDF',
           icon: const Icon(Icons.download_rounded),
           onPressed: canExport
-              ? () => shareStatementPdf(
-                  account: account!, transactions: entries)
+              ? () =>
+                    shareStatementPdf(account: account!, transactions: entries)
               : null,
         ),
       ],
       body: accountAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (e, _) => _ErrorState(message: e.toString()),
         data: (account) {
           if (account == null) return _NotSetupState(t: t);
@@ -86,305 +72,329 @@ class BalanceScreen extends ConsumerWidget {
               await Future<void>.delayed(const Duration(milliseconds: 500));
             },
             child: ListView(
-            children: [
-              // ── Year selector ───────────────────────────────────────────
-              ref.watch(ownerStatementYearsProvider).maybeWhen(
-                    data: (years) {
-                      final sel = ref.watch(selectedOwnerYearProvider);
-                      final items = years.contains(sel)
-                          ? years
-                          : [sel, ...years]
-                        ..sort((a, b) => b.compareTo(a));
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.calendar_month_rounded,
+              children: [
+                // ── Year selector ───────────────────────────────────────────
+                ref
+                    .watch(ownerStatementYearsProvider)
+                    .maybeWhen(
+                      data: (years) {
+                        final sel = ref.watch(selectedOwnerYearProvider);
+                        final items =
+                            years.contains(sel) ? years : [sel, ...years]
+                              ..sort((a, b) => b.compareTo(a));
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_month_rounded,
                                   size: 20,
-                                  color: Theme.of(context).colorScheme.primary),
-                              const SizedBox(width: 10),
-                              Text('${t.forYear}:',
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium),
-                              const Spacer(),
-                              DropdownButton<int>(
-                                value: sel,
-                                underline: const SizedBox.shrink(),
-                                items: items
-                                    .map((y) => DropdownMenuItem<int>(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '${t.forYear}:',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const Spacer(),
+                                DropdownButton<int>(
+                                  value: sel,
+                                  underline: const SizedBox.shrink(),
+                                  items: items
+                                      .map(
+                                        (y) => DropdownMenuItem<int>(
                                           value: y,
-                                          child: Text('$y',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.w800)),
-                                        ))
-                                    .toList(),
-                                onChanged: (y) {
-                                  if (y != null) {
-                                    ref
-                                        .read(selectedOwnerYearProvider.notifier)
-                                        .set(y);
-                                  }
-                                },
-                              ),
-                            ],
+                                          child: Text(
+                                            '$y',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (y) {
+                                    if (y != null) {
+                                      ref
+                                          .read(
+                                            selectedOwnerYearProvider.notifier,
+                                          )
+                                          .set(y);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    orElse: () => const SizedBox.shrink(),
-                  ),
+                        );
+                      },
+                      orElse: () => const SizedBox.shrink(),
+                    ),
 
-              // No published statement for the selected year → show a clear
-              // notice instead of misleading locally-computed numbers.
-              if (st == null)
-                _NoStatementCard(
-                    year: account.year, isArabic: settings.isArabic)
-              else ...[
-              // ── Hero balance card ───────────────────────────────────────
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isCredit
-                        ? [const Color(0xFF1A5C2D), AppTheme.success]
-                        : [const Color(0xFF5C2D1A), AppTheme.cognac],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          isCredit
-                              ? Icons.check_circle_rounded
-                              : Icons.account_balance_wallet_rounded,
-                          color: Colors.white.withValues(alpha: 0.85),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          villa != null
-                              ? '${t.ownerAccountTitle} - ${t.forYear} ${account.year}'
-                              : t.ownerAccountTitle,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.92),
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '${balanceAbs.toStringAsFixed(0)} EGP',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isCredit ? t.creditBalance : t.debitBalance,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.82),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // ── Two summary chips ───────────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetricCard(
-                      title: t.totalChargesLabel,
-                      value:
-                          '${(account.totalCharges + account.maintenance).toStringAsFixed(0)} EGP',
-                      color: AppTheme.danger,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _MetricCard(
-                      title: t.totalPaymentsLabel,
-                      value: '${account.totalPayments.toStringAsFixed(0)} EGP',
-                      color: AppTheme.success,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // ── Account breakdown card ──────────────────────────────────
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.balanceSummary,
-                        style: Theme.of(context).textTheme.titleMedium,
+                // No published statement for the selected year → show a clear
+                // notice instead of misleading locally-computed numbers.
+                if (st == null)
+                  _NoStatementCard(
+                    year: account.year,
+                    isArabic: settings.isArabic,
+                  )
+                else ...[
+                  // ── Hero balance card ───────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isCredit
+                            ? [const Color(0xFF1A5C2D), AppTheme.success]
+                            : [const Color(0xFF5C2D1A), AppTheme.cognac],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
                       ),
-                      const SizedBox(height: 14),
-                      _Row(label: t.maintenanceFee,
-                          value: '${account.maintenance.toStringAsFixed(0)} EGP'),
-                      if (account.openingBalance != 0)
-                        _Row(
-                          label: t.openingBalance,
-                          value:
-                              '${account.openingBalance.toStringAsFixed(0)} EGP',
-                        ),
-                      if (account.depositReturn > 0)
-                        _Row(
-                          label: t.depositReturn,
-                          value:
-                              '− ${account.depositReturn.toStringAsFixed(0)} EGP',
-                          color: AppTheme.success,
-                        ),
-                      if (account.totalCharges > 0)
-                        _Row(
-                          label: t.totalChargesLabel,
-                          value:
-                              '+ ${account.totalCharges.toStringAsFixed(0)} EGP',
-                          color: AppTheme.danger,
-                        ),
-                      _Row(
-                        label: t.totalPaymentsLabel,
-                        value:
-                            '− ${account.totalPayments.toStringAsFixed(0)} EGP',
-                        color: AppTheme.success,
-                      ),
-                      const Divider(height: 20),
-                      _Row(
-                        label: isCredit ? t.creditBalance : t.debitBalance,
-                        value:
-                            '${account.balance.toStringAsFixed(0)} EGP',
-                        highlight: true,
-                        color: isCredit ? AppTheme.success : AppTheme.danger,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // ── Detailed account statement (matches the ERP Excel/PDF) ──
-              if (account.statement != null &&
-                  account.statement!.rows.isNotEmpty) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${t.accountStatement} ${account.year}',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Row(
+                          children: [
+                            Icon(
+                              isCredit
+                                  ? Icons.check_circle_rounded
+                                  : Icons.account_balance_wallet_rounded,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              villa != null
+                                  ? '${t.ownerAccountTitle} - ${t.forYear} ${account.year}'
+                                  : t.ownerAccountTitle,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                  ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        for (final r in account.statement!.rows)
-                          _StatementRowView(row: r),
+                        const SizedBox(height: 14),
+                        Text(
+                          '${balanceAbs.toStringAsFixed(0)} EGP',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          isCredit ? t.creditBalance : t.debitBalance,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.82),
+                              ),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
 
-              // ── Year basis: settled → meter/area/deposit ;
-              //    unsettled (current year) → monthly amount × months + opening
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  // ── Two summary chips ───────────────────────────────────────
+                  Row(
                     children: [
-                      Text(
-                        '${t.accountStatement} ${account.year}',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Expanded(
+                        child: _MetricCard(
+                          title: t.totalChargesLabel,
+                          value:
+                              '${(account.totalCharges + account.maintenance).toStringAsFixed(0)} EGP',
+                          color: AppTheme.danger,
+                        ),
                       ),
-                      const SizedBox(height: 14),
-                      if (st.isUnsettled) ...[
-                        _Row(
-                          label: settings.isArabic
-                              ? 'المبلغ الشهري'
-                              : 'Monthly amount',
-                          value: '${st.monthly.toStringAsFixed(0)} EGP',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MetricCard(
+                          title: t.totalPaymentsLabel,
+                          value:
+                              '${account.totalPayments.toStringAsFixed(0)} EGP',
+                          color: AppTheme.success,
                         ),
-                        _Row(
-                          label: settings.isArabic
-                              ? 'عدد الأشهر المستحقة'
-                              : 'Months due',
-                          value: '${st.billedMonths}',
-                        ),
-                        if (st.openingBalance != 0)
-                          _Row(
-                            label: t.openingBalance,
-                            value:
-                                '${st.openingBalance.toStringAsFixed(0)} EGP',
-                          ),
-                      ] else ...[
-                        if (st.area > 0)
-                          _Row(
-                            label: t.area,
-                            value: '${st.area.toStringAsFixed(0)} م²',
-                          ),
-                        if (st.meterPrice > 0)
-                          _Row(
-                            label: t.pricePerMeterLabel,
-                            value:
-                                '${st.meterPrice.toStringAsFixed(0)} EGP/م²',
-                          ),
-                        if (account.depositPaid > 0)
-                          _Row(
-                            label: t.deposit,
-                            value:
-                                '${account.depositPaid.toStringAsFixed(0)} EGP',
-                          ),
-                        if (st.depositReturn > 0)
-                          _Row(
-                            label: t.depositReturn,
-                            value:
-                                '− ${st.depositReturn.toStringAsFixed(0)} EGP',
-                            color: AppTheme.success,
-                          ),
-                      ],
+                      ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ], // end: statement present
+                  const SizedBox(height: 16),
 
-              // ── Ledger history ──────────────────────────────────────────
-              txAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (entries) => _LedgerList(
-                      entries: entries,
-                      t: t,
-                      ownerName: account.name,
-                      villaNo: account.villaNo,
+                  // ── Account breakdown card ──────────────────────────────────
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.balanceSummary,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 14),
+                          _Row(
+                            label: t.maintenanceFee,
+                            value:
+                                '${account.maintenance.toStringAsFixed(0)} EGP',
+                          ),
+                          if (account.openingBalance != 0)
+                            _Row(
+                              label: t.openingBalance,
+                              value:
+                                  '${account.openingBalance.toStringAsFixed(0)} EGP',
+                            ),
+                          if (account.depositReturn > 0)
+                            _Row(
+                              label: t.depositReturn,
+                              value:
+                                  '− ${account.depositReturn.toStringAsFixed(0)} EGP',
+                              color: AppTheme.success,
+                            ),
+                          if (account.totalCharges > 0)
+                            _Row(
+                              label: t.totalChargesLabel,
+                              value:
+                                  '+ ${account.totalCharges.toStringAsFixed(0)} EGP',
+                              color: AppTheme.danger,
+                            ),
+                          _Row(
+                            label: t.totalPaymentsLabel,
+                            value:
+                                '− ${account.totalPayments.toStringAsFixed(0)} EGP',
+                            color: AppTheme.success,
+                          ),
+                          const Divider(height: 20),
+                          _Row(
+                            label: isCredit ? t.creditBalance : t.debitBalance,
+                            value: '${account.balance.toStringAsFixed(0)} EGP',
+                            highlight: true,
+                            color: isCredit
+                                ? AppTheme.success
+                                : AppTheme.danger,
+                          ),
+                        ],
+                      ),
                     ),
-              ),
-            ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Detailed account statement (matches the ERP Excel/PDF) ──
+                  if (account.statement != null &&
+                      account.statement!.rows.isNotEmpty) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${t.accountStatement} ${account.year}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            for (final r in account.statement!.rows)
+                              _StatementRowView(row: r),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Year basis: settled → meter/area/deposit ;
+                  //    unsettled (current year) → monthly amount × months + opening
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${t.accountStatement} ${account.year}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 14),
+                          if (st.isUnsettled) ...[
+                            _Row(
+                              label: settings.isArabic
+                                  ? 'المبلغ الشهري'
+                                  : 'Monthly amount',
+                              value: '${st.monthly.toStringAsFixed(0)} EGP',
+                            ),
+                            _Row(
+                              label: settings.isArabic
+                                  ? 'عدد الأشهر المستحقة'
+                                  : 'Months due',
+                              value: '${st.billedMonths}',
+                            ),
+                            if (st.openingBalance != 0)
+                              _Row(
+                                label: t.openingBalance,
+                                value:
+                                    '${st.openingBalance.toStringAsFixed(0)} EGP',
+                              ),
+                          ] else ...[
+                            if (st.area > 0)
+                              _Row(
+                                label: t.area,
+                                value:
+                                    '${st.area.toStringAsFixed(0)} ${settings.isArabic ? 'م²' : 'm²'}',
+                              ),
+                            if (st.meterPrice > 0)
+                              _Row(
+                                label: t.pricePerMeterLabel,
+                                value:
+                                    '${st.meterPrice.toStringAsFixed(0)} EGP/${settings.isArabic ? 'م²' : 'm²'}',
+                              ),
+                            if (account.depositPaid > 0)
+                              _Row(
+                                label: t.deposit,
+                                value:
+                                    '${account.depositPaid.toStringAsFixed(0)} EGP',
+                              ),
+                            if (st.depositReturn > 0)
+                              _Row(
+                                label: t.depositReturn,
+                                value:
+                                    '− ${st.depositReturn.toStringAsFixed(0)} EGP',
+                                color: AppTheme.success,
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ], // end: statement present
+                // ── Ledger history ──────────────────────────────────────────
+                txAsync.when(
+                  loading: () =>
+                      const SkeletonList(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (entries) => _LedgerList(
+                    entries: entries,
+                    t: t,
+                    ownerName: account.name,
+                    villaNo: account.villaNo,
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -409,8 +419,11 @@ class _NoStatementCard extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Icon(Icons.receipt_long_outlined,
-                size: 44, color: cs.onSurfaceVariant),
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 44,
+              color: cs.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
             Text(
               isArabic
@@ -425,10 +438,9 @@ class _NoStatementCard extends StatelessWidget {
                   ? 'برجاء الطلب من الإدارة تحديث كشوف الحساب، أو اختر سنة أخرى من الأعلى.'
                   : 'Please ask management to refresh the statements, or pick another year above.',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],
         ),
@@ -451,19 +463,27 @@ class _NotSetupState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.account_balance_outlined,
-                size: 64,
-                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5)),
+            Icon(
+              Icons.account_balance_outlined,
+              size: 64,
+              color: Theme.of(
+                context,
+              ).colorScheme.outline.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
-            Text(t.ownerNotSetup,
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center),
+            Text(
+              t.ownerNotSetup,
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 8),
-            Text(t.ownerNotSetupHint,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-                textAlign: TextAlign.center),
+            Text(
+              t.ownerNotSetupHint,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -478,8 +498,10 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text(message,
-          style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      child: Text(
+        message,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
     );
   }
 }
@@ -507,26 +529,32 @@ class _LedgerList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(t.ledgerHistory,
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              t.ledgerHistory,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 14),
             if (entries.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Center(
-                  child: Text(t.noLedgerEntries,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          )),
+                  child: Text(
+                    t.noLedgerEntries,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
                 ),
               )
             else
-              ...entries.map((e) => _LedgerRow(
-                    entry: e,
-                    t: t,
-                    ownerName: ownerName,
-                    villaNo: villaNo,
-                  )),
+              ...entries.map(
+                (e) => _LedgerRow(
+                  entry: e,
+                  t: t,
+                  ownerName: ownerName,
+                  villaNo: villaNo,
+                ),
+              ),
           ],
         ),
       ),
@@ -554,7 +582,7 @@ class _LedgerRow extends StatelessWidget {
     final sign = isPayment ? '−' : '+';
     final label = entry.category?.isNotEmpty == true
         ? entry.category!
-        : (isPayment ? t.totalPaymentsLabel : t.charge);
+        : (isPayment ? t.payment : t.charge);
 
     String formattedDate;
     try {
@@ -573,59 +601,68 @@ class _LedgerRow extends StatelessWidget {
       ),
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isPayment
+                    ? Icons.arrow_downward_rounded
+                    : Icons.arrow_upward_rounded,
+                color: color,
+                size: 18,
+              ),
             ),
-            child: Icon(
-              isPayment
-                  ? Icons.arrow_downward_rounded
-                  : Icons.arrow_upward_rounded,
-              color: color,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                if (entry.description?.isNotEmpty == true)
-                  Text(entry.description!,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (entry.description?.isNotEmpty == true)
+                    Text(
+                      entry.description!,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          )),
-                Text(formattedDate,
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  Text(
+                    formattedDate,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        )),
-              ],
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            '$sign ${entry.amount.toStringAsFixed(0)} EGP',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(width: 6),
-          Icon(Icons.chevron_left_rounded,
-              size: 18, color: Colors.grey.shade400),
-        ],
+            Text(
+              '$sign ${entry.amount.toStringAsFixed(0)} EGP',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.chevron_left_rounded,
+              size: 18,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -649,17 +686,19 @@ class _MetricCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 8),
             Text(
               value,
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(color: color, fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ],
         ),
@@ -683,7 +722,8 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ??
+    final effectiveColor =
+        color ??
         (highlight
             ? Theme.of(context).colorScheme.primary
             : Theme.of(context).colorScheme.onSurface);
@@ -695,18 +735,17 @@ class _Row extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight:
-                        highlight ? FontWeight.w800 : FontWeight.normal,
-                    color: effectiveColor,
-                  ),
+                fontWeight: highlight ? FontWeight.w800 : FontWeight.normal,
+                color: effectiveColor,
+              ),
             ),
           ),
           Text(
             value,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: effectiveColor,
-                ),
+              fontWeight: FontWeight.w700,
+              color: effectiveColor,
+            ),
           ),
         ],
       ),
@@ -745,9 +784,9 @@ class _StatementRowView extends StatelessWidget {
         child: Text(
           row.label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: cs.primary,
-              ),
+            fontWeight: FontWeight.w800,
+            color: cs.primary,
+          ),
         ),
       );
     }
@@ -766,16 +805,15 @@ class _StatementRowView extends StatelessWidget {
                 Text(
                   row.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight:
-                            (row.bold || isResult) ? FontWeight.w800 : null,
-                      ),
+                    fontWeight: (row.bold || isResult) ? FontWeight.w800 : null,
+                  ),
                 ),
                 if (row.details.isNotEmpty)
                   Text(
                     row.details,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
+                      color: Colors.grey.shade600,
+                    ),
                   ),
               ],
             ),
@@ -784,9 +822,10 @@ class _StatementRowView extends StatelessWidget {
           Text(
             amount == null ? '—' : '${_money(amount)} EGP',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight:
-                      (row.bold || isResult) ? FontWeight.w800 : FontWeight.w600,
-                ),
+              fontWeight: (row.bold || isResult)
+                  ? FontWeight.w800
+                  : FontWeight.w600,
+            ),
           ),
         ],
       ),

@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../utils/cloud_dates.dart';
@@ -57,9 +56,6 @@ class AnnualSettlement extends Equatable {
     required this.createdAt,
   });
 
-  factory AnnualSettlement.fromFirestore(DocumentSnapshot doc) =>
-      AnnualSettlement.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-
   factory AnnualSettlement.fromMap(String id, Map<String, dynamic> d) {
     double n(String k) => (d[k] as num?)?.toDouble() ?? 0;
     return AnnualSettlement(
@@ -112,7 +108,7 @@ class AnnualSettlement extends Equatable {
         'depositReturn': depositReturn,
         'totalPaid': totalPaid,
         'closingBalance': closingBalance,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
       };
 
   @override

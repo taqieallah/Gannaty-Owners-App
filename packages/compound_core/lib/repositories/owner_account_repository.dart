@@ -173,14 +173,22 @@ class OwnerAccountRepository {
   Future<OwnerAccount> _buildAccount(SupaDoc ownerDoc, int currentYear) async {
     final ownerId = (ownerDoc.data['Id'] as num?)?.toInt() ?? 0;
 
-    final yearDocs = await _db.queryEq(_yearSettings, 'OwnerId', ownerId);
+    // The three reads are independent: run them together instead of paying
+    // three network round trips one after another.
+    final results = await Future.wait<Object?>([
+      _db.queryEq(_yearSettings, 'OwnerId', ownerId),
+      _db.queryEq(_tx, 'OwnerId', ownerId),
+      _fetchStatement(ownerId, currentYear),
+    ]);
+    final yearDocs = results[0]! as List<SupaDoc>;
+    final txDocs = results[1]! as List<SupaDoc>;
+    final statement = results[2] as OwnerStatement?;
     final yearList = yearDocs
         .map((d) => d.data)
         .where((d) => (d['Year'] as num?)?.toInt() == currentYear)
         .toList();
     final yearSettings = yearList.isNotEmpty ? yearList.first : null;
 
-    final txDocs = await _db.queryEq(_tx, 'OwnerId', ownerId);
     final from = '$currentYear-01-01';
     final to = '${currentYear + 1}-01-01';
 
@@ -197,8 +205,6 @@ class OwnerAccountRepository {
         totalCharges += amount;
       }
     }
-
-    final statement = await _fetchStatement(ownerId, currentYear);
 
     return OwnerAccount.fromMap(
       ownerData: ownerDoc.data,

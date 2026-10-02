@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../utils/cloud_dates.dart';
@@ -21,9 +20,6 @@ class AnnualSettings extends Equatable {
     required this.createdAt,
   });
 
-  factory AnnualSettings.fromFirestore(DocumentSnapshot doc) =>
-      AnnualSettings.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-
   factory AnnualSettings.fromMap(String id, Map<String, dynamic> data) {
     return AnnualSettings(
       id: id,
@@ -38,7 +34,7 @@ class AnnualSettings extends Equatable {
         'year': year,
         'pricePerMeter': pricePerMeter,
         'depositRate': depositRate,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
       };
 
   Map<String, dynamic> toMap() => {

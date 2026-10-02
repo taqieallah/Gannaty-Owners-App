@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../utils/cloud_dates.dart';
@@ -16,9 +15,6 @@ class Announcement extends Equatable {
     required this.createdAt,
   });
 
-  factory Announcement.fromFirestore(DocumentSnapshot doc) =>
-      Announcement.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-
   factory Announcement.fromMap(String id, Map<String, dynamic> data) {
     return Announcement(
       id: id,
@@ -31,7 +27,7 @@ class Announcement extends Equatable {
   Map<String, dynamic> toFirestore() => {
         'title': title,
         'body': body,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
       };
 
   Map<String, dynamic> toMap() => {

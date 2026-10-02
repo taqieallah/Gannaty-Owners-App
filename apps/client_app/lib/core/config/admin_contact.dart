@@ -9,17 +9,19 @@ import 'package:url_launcher/url_launcher.dart';
 class AdminContact {
   AdminContact._();
 
-  static const String whatsapp = '201000000000'; // TODO: real admin WhatsApp
-  static const String phone = '201000000000'; // TODO: real admin phone
+  static const String whatsapp = '201098868292';
+  static const String phone = '201098868292';
   static const String security = '201000000000'; // TODO: gate / security
   static const String maintenance = '201000000000'; // TODO: maintenance desk
 
-  static bool get isConfigured => whatsapp != '201000000000';
+  static bool get isConfigured => whatsapp.isNotEmpty;
 
   static Future<void> openWhatsApp({String? message}) async {
     final q = message == null ? '' : '?text=${Uri.encodeComponent(message)}';
-    await launchUrl(Uri.parse('https://wa.me/$whatsapp$q'),
-        mode: LaunchMode.externalApplication);
+    await launchUrl(
+      Uri.parse('https://wa.me/$whatsapp$q'),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   static Future<void> call([String? number]) async {

@@ -9,6 +9,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/app_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/client_page_scaffold.dart';
+import '../../../shared/widgets/skeleton.dart';
 
 class MyRequestsScreen extends ConsumerStatefulWidget {
   const MyRequestsScreen({super.key});
@@ -71,7 +72,7 @@ class _MyRequestsScreenState extends ConsumerState<MyRequestsScreen> {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (error, _) => Center(
           child: Text('${t.failedLoadRequests}: $error'),
         ),

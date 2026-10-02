@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 class Villa extends Equatable {
@@ -30,9 +29,6 @@ class Villa extends Equatable {
     required this.createdAt,
   });
 
-  factory Villa.fromFirestore(DocumentSnapshot doc) =>
-      Villa.fromMap(doc.id, doc.data() as Map<String, dynamic>);
-
   /// Backend-neutral builder. `createdAt` may be a Firestore Timestamp, an ISO
   /// string (Supabase), or epoch millis.
   factory Villa.fromMap(String id, Map<String, dynamic> data) {
@@ -54,8 +50,7 @@ class Villa extends Equatable {
 
   /// Parses a date stored as Firestore Timestamp, ISO-8601 string, or millis.
   static DateTime parseDate(Object? v) {
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
+      if (v is DateTime) return v;
     if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
     if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
     return DateTime.now();
@@ -87,7 +82,7 @@ class Villa extends Equatable {
         'debt2024': debt2024,
         'debt2025': debt2025,
         'isFirstLogin': isFirstLogin,
-        'createdAt': Timestamp.fromDate(createdAt),
+        'createdAt': createdAt.toIso8601String(),
       };
 
   Villa copyWith({

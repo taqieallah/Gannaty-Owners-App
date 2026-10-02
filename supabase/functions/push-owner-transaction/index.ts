@@ -1,4 +1,6 @@
-// Push a notification to an owner's device when a payment (سداد) is recorded.
+// Push a notification to an owner's device: when a payment (سداد) is recorded,
+// and when the status of one of their service requests changes. Both share the
+// owner lookup and the FCM plumbing; the payload's `kind` picks the message.
 //
 // Flow: a Postgres trigger (push_owner_transaction.sql) fires on every INSERT
 // into `documents` with collection='owner_transactions' and POSTs the row's
@@ -93,6 +95,7 @@ async function sendToToken(
   token: string,
   title: string,
   body: string,
+  data: Record<string, string> = { type: "owner_transaction", screen: "balance" },
 ): Promise<{ ok: boolean; unregistered: boolean }> {
   const accessToken = await getAccessToken();
   const resp = await fetch(
@@ -111,7 +114,7 @@ async function sendToToken(
             priority: "high",
             notification: { channel_id: CHANNEL_ID, sound: "default" },
           },
-          data: { type: "owner_transaction", screen: "balance" },
+          data,
         },
       }),
     },
@@ -145,6 +148,29 @@ function messageFor(
   };
 }
 
+// What the owner is told when the admin moves their request along.
+function statusMessageFor(
+  status: string,
+  adminNote: string,
+): { title: string; body: string } {
+  const m: Record<string, { title: string; body: string }> = {
+    in_progress: {
+      title: "طلبك قيد التنفيذ",
+      body: "جاري العمل على طلب الخدمة الخاص بك.",
+    },
+    solved: {
+      title: "تم حل طلبك ✓",
+      body: "تم الانتهاء من طلب الخدمة الخاص بك.",
+    },
+  };
+  const msg = m[status] ?? {
+    title: "تحديث على طلبك",
+    body: "تم تحديث حالة طلب الخدمة الخاص بك.",
+  };
+  const note = adminNote.trim();
+  return note ? { title: msg.title, body: `${msg.body} ملاحظة: ${note}` } : msg;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
   if (
@@ -162,14 +188,19 @@ Deno.serve(async (req) => {
   }
 
   const ownerIdText = String(payload.owner_id ?? "").trim();
+  // A payload without `kind` is the original payment push, so the existing
+  // payment trigger keeps working untouched.
+  const kind = String(payload.kind ?? "owner_transaction");
   const txType = String(payload.tx_type ?? "").toUpperCase();
   const amount = String(payload.amount ?? "");
   const description = String(payload.description ?? "");
 
   // Only notify on actual payments (سداد), not charges/other rows.
-  if (txType !== "PAYMENT") return new Response(JSON.stringify({ skipped: txType }), {
-    headers: { "content-type": "application/json" },
-  });
+  if (kind === "owner_transaction" && txType !== "PAYMENT") {
+    return new Response(JSON.stringify({ skipped: txType }), {
+      headers: { "content-type": "application/json" },
+    });
+  }
   if (!ownerIdText) return new Response("no owner", { status: 200 });
 
   // Look up the owner's FCM token (exact text id match — int64-safe).
@@ -192,8 +223,22 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { title, body } = messageFor(txType, amount, description);
-  const res = await sendToToken(token, title, body);
+  let title: string, body: string;
+  let data: Record<string, string> | undefined;
+  if (kind === "service_status") {
+    ({ title, body } = statusMessageFor(
+      String(payload.status ?? ""),
+      String(payload.admin_note ?? ""),
+    ));
+    // Open the request itself when we know which one it was.
+    const requestId = String(payload.request_id ?? "").trim();
+    data = requestId
+      ? { type: "service_status", screen: "request_detail", id: requestId }
+      : { type: "service_status", screen: "requests" };
+  } else {
+    ({ title, body } = messageFor(txType, amount, description));
+  }
+  const res = await sendToToken(token, title, body, data);
 
   // Prune a stale token so we don't keep trying it.
   if (res.unregistered && owner) {

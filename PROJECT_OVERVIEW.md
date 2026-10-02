@@ -114,6 +114,9 @@ Owners app repo — `supabase/`:
 - `owners_app_rls_v2.sql` — RLS + `owner_check_password` / `owners_app_set_password` /
   `owners_app_save_fcm` / `owner_id_text_by_docid`.
 - `push_owner_transaction.sql` — trigger (owner_transactions INSERT → push function).
+- `push_service_status.sql` — trigger (serviceRequests status change → the same push
+  function with `kind: service_status`), so owners are told when a request is taken
+  up or solved. Needs the function redeployed first.
 - `fix_service_request_trigger.sql` — `notify_service_request` (fixed URL + never
   aborts the insert).
 - `SECURITY_RUNBOOK.md` — deploy steps.

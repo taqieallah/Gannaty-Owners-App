@@ -1,4 +1,4 @@
-﻿name: client_app
+name: client_app
 description: Gannaty client application for owners and residents.
 publish_to: 'none'
 version: 1.0.0+1
@@ -28,6 +28,7 @@ dependencies:
   url_launcher: ^6.3.1
   printing: ^5.14.2
   pdf: ^3.11.1
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

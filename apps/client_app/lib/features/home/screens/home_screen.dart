@@ -246,6 +246,11 @@ class HomeScreen extends ConsumerWidget {
                         onTap: () => context.push('/requests/new'),
                       ),
                       _QuickAction(
+                        icon: Icons.qr_code_2_rounded,
+                        label: 'دعوة زائر',
+                        onTap: () => context.push('/visitors'),
+                      ),
+                      _QuickAction(
                         icon: Icons.notifications_rounded,
                         label: t.notifications,
                         onTap: () => context.push('/notifications'),

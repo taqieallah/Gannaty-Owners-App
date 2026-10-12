@@ -15,6 +15,7 @@ import '../../features/service_requests/screens/request_detail_screen.dart';
 import '../../features/service_requests/screens/submit_request_screen.dart';
 import '../../shared/widgets/client_shell.dart';
 import '../providers/app_providers.dart';
+import '../../features/visitors/screens/visitors_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -58,6 +59,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/set-password',
         builder: (context, state) => const SetPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/visitors',
+        builder: (context, state) => const VisitorsScreen(),
       ),
       GoRoute(
         path: '/notifications',

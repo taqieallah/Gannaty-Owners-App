@@ -30,10 +30,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: ivory,
-      textTheme: textTheme.apply(
-        bodyColor: text,
-        displayColor: text,
-      ),
+      textTheme: textTheme.apply(bodyColor: text, displayColor: text),
       appBarTheme: AppBarTheme(
         backgroundColor: ivory,
         foregroundColor: text,
@@ -58,8 +55,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: mist,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: cognac.withValues(alpha: 0.16)),
@@ -87,20 +86,18 @@ class AppTheme {
           ),
         ),
       ),
-      chipTheme: ChipThemeData(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        side: BorderSide.none,
-        labelStyle: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+      chipTheme: _chips(
+        background: sand,
+        selected: cognac,
+        label: text,
+        selectedLabel: Colors.white,
       ),
       iconTheme: const IconThemeData(color: cognac),
     );
   }
 
   static ThemeData get dark {
-    final textTheme = GoogleFonts.cairoTextTheme(
-      ThemeData.dark().textTheme,
-    );
+    final textTheme = GoogleFonts.cairoTextTheme(ThemeData.dark().textTheme);
     final scheme = ColorScheme.fromSeed(
       seedColor: cognac,
       brightness: Brightness.dark,
@@ -142,8 +139,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFF22160F),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
@@ -171,13 +170,39 @@ class AppTheme {
           ),
         ),
       ),
-      chipTheme: ChipThemeData(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        side: BorderSide.none,
-        labelStyle: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+      chipTheme: _chips(
+        background: const Color(0xFF33231A),
+        selected: const Color(0xFFD5A26C),
+        label: const Color(0xFFF7EBDC),
+        selectedLabel: espresso,
       ),
       iconTheme: const IconThemeData(color: Color(0xFFD5A26C)),
+    );
+  }
+
+  /// Chips with explicit colours: without them the Material 3 defaults
+  /// (derived from the seed) put white labels on a near-white chip.
+  static ChipThemeData _chips({
+    required Color background,
+    required Color selected,
+    required Color label,
+    required Color selectedLabel,
+  }) {
+    return ChipThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      side: BorderSide.none,
+      // backgroundColor/selectedColor (not `color`), so chips that set their
+      // own colours keep them.
+      backgroundColor: background,
+      selectedColor: selected,
+      checkmarkColor: selectedLabel,
+      labelStyle: GoogleFonts.cairo(
+        fontWeight: FontWeight.w700,
+        color: WidgetStateColor.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? selectedLabel : label,
+        ),
+      ),
     );
   }
 }

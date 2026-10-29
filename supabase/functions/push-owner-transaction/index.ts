@@ -315,7 +315,12 @@ async function sendReminders(type: string): Promise<Response> {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
   // Every caller is our own trigger or cron job, which send this header.
-  if (!PUSH_TRIGGER_SECRET || req.headers.get("x-push-secret") !== PUSH_TRIGGER_SECRET) {
+  const sent = req.headers.get("x-push-secret") ?? "";
+  if (!PUSH_TRIGGER_SECRET || sent !== PUSH_TRIGGER_SECRET) {
+    // Lengths only, never the values: tells a missing or mistyped secret apart.
+    console.error(
+      `forbidden: expected ${PUSH_TRIGGER_SECRET.length} chars, got ${sent.length}`,
+    );
     return new Response("forbidden", { status: 401 });
   }
   if (!SERVICE_ACCOUNT.private_key || !SERVICE_ACCOUNT.project_id) {

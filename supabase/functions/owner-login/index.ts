@@ -111,11 +111,42 @@ Deno.serve(async (req: Request) => {
   if (error) return json({ error: "lookup_failed" }, 500);
 
   const wanted = normalizePhone(phone);
+
+  // Per-phone lockout: 5 failed attempts block that phone for 15 minutes, so a
+  // password (most are still the default) can't be guessed by brute force.
+  const attemptKey = `phone:${wanted}`;
+  const { data: attempt } = await admin
+    .from("owner_login_attempts")
+    .select("failures, blocked_until")
+    .eq("workspace_uid", WORKSPACE_UID)
+    .eq("owner_no", attemptKey)
+    .maybeSingle();
+  if (attempt?.blocked_until && new Date(attempt.blocked_until) > new Date()) {
+    return json({ error: "temporarily_locked" }, 429);
+  }
+
+  // One answer for an unknown phone and a wrong password, so the endpoint
+  // doesn't reveal which phone numbers belong to owners.
+  async function rejectLogin(): Promise<Response> {
+    const failures = (attempt?.failures ?? 0) + 1;
+    await admin.from("owner_login_attempts").upsert({
+      workspace_uid: WORKSPACE_UID,
+      owner_no: attemptKey,
+      failures,
+      blocked_until: failures >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null,
+      updated_at: new Date().toISOString(),
+    });
+    return json({ error: "invalid_credentials" }, 401);
+  }
+
   const match = (rows ?? []).find((r: any) => {
+    if (String(r.data?.DeletedAt ?? "") !== "") return false; // removed owner
     const p = normalizePhone(String(r.data?.Phone ?? ""));
     return p.length > 0 && p === wanted;
   });
-  if (!match) return json({ error: "phone_not_found" }, 401);
+  if (!match) return await rejectLogin();
 
   const d = match.data ?? {};
   const stored = String(d.Password ?? "").trim();
@@ -128,7 +159,12 @@ Deno.serve(async (req: Request) => {
     p_password: password.trim(),
   });
   if (pwErr) return json({ error: "lookup_failed" }, 500);
-  if (pwOk !== true) return json({ error: "wrong_password" }, 401);
+  if (pwOk !== true) return await rejectLogin();
+
+  if (attempt) {
+    await admin.from("owner_login_attempts").delete()
+      .eq("workspace_uid", WORKSPACE_UID).eq("owner_no", attemptKey);
+  }
 
   // Exact int64 Id as text — owner Ids exceed JS safe-integer range, so we
   // fetch data->>'Id' via a service-role RPC (SQL keeps it exact) rather than

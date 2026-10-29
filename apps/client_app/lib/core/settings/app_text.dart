@@ -154,6 +154,22 @@ class AppText {
   String get failedLoadAnnouncements =>
       ar ? 'تعذر تحميل الإعلانات' : 'Failed to load announcements';
 
+  String get importantNumbers => ar ? 'أرقام مهمة' : 'Important numbers';
+  String get noImportantNumbers => ar
+      ? 'لم تضف الإدارة أي أرقام بعد'
+      : 'Management has not added any numbers yet';
+  String get failedLoadImportantNumbers =>
+      ar ? 'تعذر تحميل الأرقام' : 'Failed to load the numbers';
+  String get call => ar ? 'اتصال' : 'Call';
+  String get whatsapp => ar ? 'واتساب' : 'WhatsApp';
+  String importantNumberGroup(String group) => switch (group) {
+    'security' => ar ? 'الأمن' : 'Security',
+    'maintenance' => ar ? 'الصيانة' : 'Maintenance',
+    'management' => ar ? 'الإدارة' : 'Management',
+    'emergency' => ar ? 'الطوارئ' : 'Emergency',
+    _ => ar ? 'أخرى' : 'Other',
+  };
+
   String get requestDetail => ar ? 'تفاصيل الطلب' : 'Request Details';
   String get statusTimeline => ar ? 'مسار الطلب' : 'Request Timeline';
   String get submittedOn => ar ? 'تاريخ الإرسال' : 'Submitted on';

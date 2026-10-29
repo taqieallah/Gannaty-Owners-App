@@ -251,6 +251,11 @@ class HomeScreen extends ConsumerWidget {
                         onTap: () => context.push('/visitors'),
                       ),
                       _QuickAction(
+                        icon: Icons.contact_phone_rounded,
+                        label: t.importantNumbers,
+                        onTap: () => context.push('/important-numbers'),
+                      ),
+                      _QuickAction(
                         icon: Icons.notifications_rounded,
                         label: t.notifications,
                         onTap: () => context.push('/notifications'),

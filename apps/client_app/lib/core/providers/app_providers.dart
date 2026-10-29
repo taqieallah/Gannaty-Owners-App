@@ -12,6 +12,9 @@ final villaRepositoryProvider = Provider<VillaRepository>(
 final announcementRepositoryProvider = Provider<AnnouncementRepository>(
   (ref) => AnnouncementRepository(),
 );
+final importantNumbersRepositoryProvider = Provider<ImportantNumbersRepository>(
+  (ref) => ImportantNumbersRepository(),
+);
 final paymentRepositoryProvider = Provider<PaymentRepository>(
   (ref) => PaymentRepository(),
 );
@@ -273,6 +276,10 @@ class SessionController extends AsyncNotifier<Villa?> {
         return 'رقم الهاتف غير موجود في حسابات الملاك';
       case 'wrong_password':
         return 'كلمة المرور غير صحيحة';
+      case 'invalid_credentials':
+        return 'رقم الهاتف أو كلمة المرور غير صحيحة';
+      case 'temporarily_locked':
+        return 'محاولات كثيرة خاطئة، حاول مرة أخرى بعد ربع ساعة';
       case 'network':
         return 'خطأ في الاتصال، تحقق من الإنترنت وحاول مجدداً';
       default:
@@ -313,6 +320,12 @@ final announcementsProvider = StreamProvider<List<Announcement>>((ref) {
   final villa = ref.watch(currentVillaProvider);
   if (villa == null) return const Stream.empty();
   return ref.watch(announcementRepositoryProvider).watchAll();
+});
+
+final importantNumbersProvider = StreamProvider<List<ImportantNumber>>((ref) {
+  final villa = ref.watch(currentVillaProvider);
+  if (villa == null) return const Stream.empty();
+  return ref.watch(importantNumbersRepositoryProvider).watch();
 });
 
 final settlementsProvider = StreamProvider<List<AnnualSettlement>>((ref) {

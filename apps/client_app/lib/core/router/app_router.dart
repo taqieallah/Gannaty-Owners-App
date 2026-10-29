@@ -7,6 +7,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/set_password_screen.dart';
 import '../../features/balance/screens/balance_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/important_numbers/screens/important_numbers_screen.dart';
 import '../../features/notifications/screens/notification_history_screen.dart';
 import '../../features/payments/screens/payments_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
@@ -30,7 +31,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final villa = session.asData?.value;
       final onLogin = state.matchedLocation == '/login';
       final onSetPassword = state.matchedLocation == '/set-password';
-      final requiresPasswordReset = villa != null &&
+      final requiresPasswordReset =
+          villa != null &&
           (villa.isFirstLogin || villa.password.trim() == '123456');
 
       if (session.isLoading) {
@@ -52,10 +54,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/set-password',
         builder: (context, state) => const SetPasswordScreen(),
@@ -67,6 +66,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/important-numbers',
+        builder: (context, state) => const ImportantNumbersScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => ClientShell(child: child),
@@ -93,9 +96,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(
                 path: ':id',
-                builder: (context, state) => RequestDetailScreen(
-                  requestId: state.pathParameters['id']!,
-                ),
+                builder: (context, state) =>
+                    RequestDetailScreen(requestId: state.pathParameters['id']!),
               ),
             ],
           ),
@@ -115,7 +117,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 class RouterRefreshScope extends ChangeNotifier {
   RouterRefreshScope(this.ref) {
-    ref.listen(sessionControllerProvider, (previous, next) => notifyListeners());
+    ref.listen(
+      sessionControllerProvider,
+      (previous, next) => notifyListeners(),
+    );
   }
 
   final Ref ref;

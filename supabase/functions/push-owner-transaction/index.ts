@@ -1,6 +1,9 @@
-// Push a notification to an owner's device: when a payment (سداد) is recorded,
-// and when the status of one of their service requests changes. Both share the
-// owner lookup and the FCM plumbing; the payload's `kind` picks the message.
+// Push notifications to owners' devices. The payload's `kind` picks the message:
+//   (none) / owner_transaction  a payment (سداد) was recorded
+//   service_status              one of their service requests changed status
+//   visitor_arrived             a visitor pass of theirs was used at the gate
+//   reminders                   monthly maintenance / overdue reminders for every
+//                               owner (sent by pg_cron, at most once a month each)
 //
 // Flow: a Postgres trigger (push_owner_transaction.sql) fires on every INSERT
 // into `documents` with collection='owner_transactions' and POSTs the row's
@@ -21,7 +24,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const PUSH_TRIGGER_SECRET = Deno.env.get("PUSH_TRIGGER_SECRET") ?? "";
 const WORKSPACE_UID = Deno.env.get("OWNERS_WORKSPACE_UID") ??
   Deno.env.get("WORKSPACE_UID") ?? "";
-const SERVICE_ACCOUNT = JSON.parse(Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "{}");
+// A malformed secret must not crash the function at boot (every call would
+// then fail with no explanation); it is reported per request instead.
+function parseServiceAccount(): Record<string, string> {
+  try {
+    return JSON.parse(Deno.env.get("FCM_SERVICE_ACCOUNT") ?? "{}");
+  } catch {
+    return {};
+  }
+}
+const SERVICE_ACCOUNT = parseServiceAccount();
 const CHANNEL_ID = "compound_high_importance"; // must match the owner app's channel
 
 const supabase = createClient(
@@ -126,18 +138,17 @@ async function sendToToken(
   return { ok: false, unregistered };
 }
 
-// ── Notification text from the transaction fields ───────────────────────────
-function egp(v: string): string {
+
+// ── Message texts ───────────────────────────────────────────────────────────
+type Msg = { title: string; body: string; data: Record<string, string> };
+
+function egp(v: string | number): string {
   const n = Number(v);
-  if (!isFinite(n)) return v;
-  return n.toLocaleString("en-US");
+  if (!isFinite(n)) return String(v);
+  return Math.round(n).toLocaleString("en-US");
 }
 
-function messageFor(
-  txType: string,
-  amount: string,
-  description: string,
-): { title: string; body: string } {
+function messageFor(amount: string, description: string): Msg {
   const desc = (description ?? "").trim();
   return {
     title: "تم تسجيل دفعة",
@@ -145,6 +156,7 @@ function messageFor(
       `تم تسجيل دفعة بمبلغ ${egp(amount)} ج.م`,
       desc ? `(${desc})` : "",
     ].filter(Boolean).join(" "),
+    data: { type: "owner_transaction", screen: "balance" },
   };
 }
 
@@ -152,7 +164,8 @@ function messageFor(
 function statusMessageFor(
   status: string,
   adminNote: string,
-): { title: string; body: string } {
+  requestId: string,
+): Msg {
   const m: Record<string, { title: string; body: string }> = {
     in_progress: {
       title: "طلبك قيد التنفيذ",
@@ -168,16 +181,146 @@ function statusMessageFor(
     body: "تم تحديث حالة طلب الخدمة الخاص بك.",
   };
   const note = adminNote.trim();
-  return note ? { title: msg.title, body: `${msg.body} ملاحظة: ${note}` } : msg;
+  return {
+    title: msg.title,
+    body: note ? `${msg.body} ملاحظة: ${note}` : msg.body,
+    // Open the request itself when we know which one it was.
+    data: requestId
+      ? { type: "service_status", screen: "request_detail", id: requestId }
+      : { type: "service_status", screen: "requests" },
+  };
+}
+
+function visitorMessageFor(visitor: string, gate: string): Msg {
+  const who = visitor.trim() || "زائرك";
+  return {
+    title: "وصل زائرك",
+    body: gate.trim() ? `${who} دخل من ${gate.trim()}` : `${who} دخل الكمبوند`,
+    data: { type: "visitor_arrived", screen: "visitors" },
+  };
+}
+
+const MONTHS = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
+
+/// [balance] is the current-year ClosingBalance — the number the owner sees
+/// on their balance screen. Returns null when there is nothing to remind.
+function reminderFor(
+  type: string,
+  monthly: number,
+  balance: number,
+  month: number,
+): Msg | null {
+  const data = { type: "reminder", screen: "balance" };
+  if (type === "monthly") {
+    if (monthly <= 0) return null;
+    const owed = balance > monthly + 1
+      ? ` • رصيدك المستحق: ${egp(balance)} ج.م`
+      : "";
+    return {
+      title: "قسط الصيانة الشهري",
+      body: `قسط شهر ${MONTHS[month - 1]}: ${egp(monthly)} ج.م${owed}`,
+      data,
+    };
+  }
+  // Overdue: owes more than the current month's installment.
+  if (balance <= Math.max(monthly, 0) + 1) return null;
+  return {
+    title: "تذكير بالمتأخرات",
+    body: `عليك مبلغ ${egp(balance)} ج.م مستحق السداد. برجاء السداد في أقرب وقت.`,
+    data,
+  };
+}
+
+// ── Delivery ────────────────────────────────────────────────────────────────
+
+/// Sends [msg] to an owner's device; clears a token FCM says is gone. The
+/// token is cleared through set_document (a JSONB merge in Postgres): writing
+/// the whole owner back from JS would round its int64 `Id` and break the
+/// account.
+async function deliver(
+  docId: string,
+  token: string,
+  msg: Msg,
+): Promise<boolean> {
+  const res = await sendToToken(token, msg.title, msg.body, msg.data);
+  if (res.unregistered) {
+    await supabase.rpc("set_document", {
+      p_uid: WORKSPACE_UID,
+      p_collection: "owners",
+      p_doc_id: docId,
+      p_data: { FcmToken: "" },
+      p_merge: true,
+    });
+  }
+  return res.ok;
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+/// Monthly / overdue reminders for every owner with a device. Each owner gets
+/// each type at most once per month (a marker row in `owner_notify_log`), so
+/// a retried cron run doesn't repeat messages.
+async function sendReminders(type: string): Promise<Response> {
+  if (type !== "monthly" && type !== "overdue") {
+    return json({ error: "bad_type" }, 400);
+  }
+  const cairo = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date()); // "2026-11"
+  const [year, month] = cairo.split("-").map(Number);
+
+  const { data: targets, error } = await supabase.rpc(
+    "owner_reminder_targets",
+    { p_year: year },
+  );
+  if (error) return json({ error: "targets_failed" }, 500);
+
+  let sent = 0;
+  let skipped = 0;
+  for (const t of (targets ?? []) as Array<Record<string, unknown>>) {
+    const msg = reminderFor(
+      type,
+      Number(t.monthly) || 0,
+      Number(t.balance) || 0,
+      month,
+    );
+    if (!msg) continue;
+    const marker = `${type}:${cairo}:${t.owner_id}`;
+    // The insert is the lock: a second run for the same month conflicts here.
+    const { error: dup } = await supabase.from("documents").insert({
+      uid: WORKSPACE_UID,
+      collection: "owner_notify_log",
+      doc_id: marker,
+      data: { Type: type, Month: cairo, OwnerId: String(t.owner_id), At: new Date().toISOString() },
+    });
+    if (dup) {
+      skipped++;
+      continue;
+    }
+    if (await deliver(String(t.doc_id), String(t.fcm), msg)) sent++;
+  }
+  return json({ type, month: cairo, sent, skipped });
 }
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
-  if (
-    PUSH_TRIGGER_SECRET &&
-    req.headers.get("x-push-secret") !== PUSH_TRIGGER_SECRET
-  ) {
+  // Every caller is our own trigger or cron job, which send this header.
+  if (!PUSH_TRIGGER_SECRET || req.headers.get("x-push-secret") !== PUSH_TRIGGER_SECRET) {
     return new Response("forbidden", { status: 401 });
+  }
+  if (!SERVICE_ACCOUNT.private_key || !SERVICE_ACCOUNT.project_id) {
+    console.error("FCM_SERVICE_ACCOUNT is not a service-account JSON");
+    return json({ error: "fcm_not_configured" }, 500);
   }
 
   let payload: Record<string, any>;
@@ -187,26 +330,39 @@ Deno.serve(async (req) => {
     return new Response("bad request", { status: 400 });
   }
 
-  const ownerIdText = String(payload.owner_id ?? "").trim();
   // A payload without `kind` is the original payment push, so the existing
   // payment trigger keeps working untouched.
   const kind = String(payload.kind ?? "owner_transaction");
-  const txType = String(payload.tx_type ?? "").toUpperCase();
-  const amount = String(payload.amount ?? "");
-  const description = String(payload.description ?? "");
+  if (kind === "reminders") return await sendReminders(String(payload.type ?? ""));
 
   // Only notify on actual payments (سداد), not charges/other rows.
+  const txType = String(payload.tx_type ?? "").toUpperCase();
   if (kind === "owner_transaction" && txType !== "PAYMENT") {
-    return new Response(JSON.stringify({ skipped: txType }), {
-      headers: { "content-type": "application/json" },
-    });
+    return json({ skipped: txType });
   }
-  if (!ownerIdText) return new Response("no owner", { status: 200 });
+  const ownerIdText = String(payload.owner_id ?? "").trim();
+  if (!ownerIdText) return json({ sent: 0, reason: "no_owner" });
+
+  let msg: Msg;
+  if (kind === "service_status") {
+    msg = statusMessageFor(
+      String(payload.status ?? ""),
+      String(payload.admin_note ?? ""),
+      String(payload.request_id ?? "").trim(),
+    );
+  } else if (kind === "visitor_arrived") {
+    msg = visitorMessageFor(
+      String(payload.visitor_name ?? ""),
+      String(payload.gate ?? ""),
+    );
+  } else {
+    msg = messageFor(String(payload.amount ?? ""), String(payload.description ?? ""));
+  }
 
   // Look up the owner's FCM token (exact text id match — int64-safe).
   const { data: rows, error } = await supabase
     .from("documents")
-    .select("doc_id, data")
+    .select("doc_id, data->>FcmToken")
     .eq("uid", WORKSPACE_UID)
     .eq("collection", "owners")
     .eq("data->>Id", ownerIdText)
@@ -215,39 +371,10 @@ Deno.serve(async (req) => {
     console.error("read owner", error);
     return new Response("error", { status: 500 });
   }
-  const owner = (rows ?? [])[0];
-  const token = String((owner?.data as Record<string, unknown>)?.FcmToken ?? "");
-  if (!token) {
-    return new Response(JSON.stringify({ sent: 0, reason: "no_token" }), {
-      headers: { "content-type": "application/json" },
-    });
-  }
+  const owner = (rows ?? [])[0] as { doc_id: string; FcmToken?: string } | undefined;
+  const token = String(owner?.FcmToken ?? "");
+  if (!owner || !token) return json({ sent: 0, reason: "no_token" });
 
-  let title: string, body: string;
-  let data: Record<string, string> | undefined;
-  if (kind === "service_status") {
-    ({ title, body } = statusMessageFor(
-      String(payload.status ?? ""),
-      String(payload.admin_note ?? ""),
-    ));
-    // Open the request itself when we know which one it was.
-    const requestId = String(payload.request_id ?? "").trim();
-    data = requestId
-      ? { type: "service_status", screen: "request_detail", id: requestId }
-      : { type: "service_status", screen: "requests" };
-  } else {
-    ({ title, body } = messageFor(txType, amount, description));
-  }
-  const res = await sendToToken(token, title, body, data);
-
-  // Prune a stale token so we don't keep trying it.
-  if (res.unregistered && owner) {
-    await supabase.from("documents").update({
-      data: { ...(owner.data as Record<string, unknown>), FcmToken: "" },
-    }).eq("uid", WORKSPACE_UID).eq("collection", "owners").eq("doc_id", owner.doc_id);
-  }
-
-  return new Response(JSON.stringify({ sent: res.ok ? 1 : 0 }), {
-    headers: { "content-type": "application/json" },
-  });
+  const ok = await deliver(owner.doc_id, token, msg);
+  return json({ sent: ok ? 1 : 0 });
 });

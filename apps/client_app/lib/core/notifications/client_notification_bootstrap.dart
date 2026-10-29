@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:compound_core/compound_core.dart';
 import 'package:flutter/material.dart';
@@ -105,7 +105,8 @@ class _ClientNotificationBootstrapState
   }
 
   void _handleRequestChanges(List<ServiceRequest> requests) {
-    final settings = ref.read(appSettingsProvider).value ??
+    final settings =
+        ref.read(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final nextKnown = <String>{};
     for (final request in requests) {
@@ -125,19 +126,25 @@ class _ClientNotificationBootstrapState
 
       final title = switch (request.status) {
         ServiceRequestStatus.pending =>
-          settings.isArabic ? 'ØªØ­Ø¯ÙŠØ« Ø·Ù„Ø¨ Ø§Ù„Ø®Ø¯Ù…Ø©' : 'Request Update',
+          settings.isArabic ? 'تحديث طلب الخدمة' : 'Request Update',
         ServiceRequestStatus.inProgress =>
-          settings.isArabic ? 'Ø¬Ø§Ø±ÙŠ ØªÙ†ÙÙŠØ° Ø§Ù„Ø·Ù„Ø¨' : 'Work Started',
+          settings.isArabic ? 'جاري تنفيذ الطلب' : 'Work Started',
         ServiceRequestStatus.solved =>
-          settings.isArabic ? 'ØªÙ… Ø¥Ù†Ù‡Ø§Ø¡ Ø§Ù„Ø·Ù„Ø¨' : 'Request Completed',
+          settings.isArabic ? 'تم إنهاء الطلب' : 'Request Completed',
       };
       final body = switch (request.status) {
         ServiceRequestStatus.pending =>
-          settings.isArabic ? 'ØªÙ… ØªØ­Ø¯ÙŠØ« Ø­Ø§Ù„Ø© Ø·Ù„Ø¨Ùƒ Ù…Ù† Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©' : 'Your request was updated',
+          settings.isArabic
+              ? 'تم تحديث حالة طلبك من الإدارة'
+              : 'Your request was updated',
         ServiceRequestStatus.inProgress =>
-          settings.isArabic ? 'Ø¨Ø¯Ø£Øª Ø§Ù„Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ø¹Ù…Ù„ Ø¹Ù„Ù‰ Ø·Ù„Ø¨Ùƒ' : 'The team started working on your request',
+          settings.isArabic
+              ? 'بدأت الإدارة العمل على طلبك'
+              : 'The team started working on your request',
         ServiceRequestStatus.solved =>
-          settings.isArabic ? 'ØªÙ… Ø¥Ù†Ù‡Ø§Ø¡ Ø·Ù„Ø¨Ùƒ ÙˆÙŠÙ…ÙƒÙ†Ùƒ Ù…Ø±Ø§Ø¬Ø¹Ø© Ø§Ù„ØµÙˆØ±Ø© ÙˆØ§Ù„Ù…Ù„Ø§Ø­Ø¸Ø©' : 'Your request has been completed',
+          settings.isArabic
+              ? 'تم إنهاء طلبك ويمكنك مراجعة الصورة والملاحظة'
+              : 'Your request has been completed',
       };
       unawaited(
         NotificationService.showSimpleNotification(title: title, body: body),
@@ -152,7 +159,8 @@ class _ClientNotificationBootstrapState
   }
 
   void _handlePaymentChanges(List<Payment> payments) {
-    final settings = ref.read(appSettingsProvider).value ??
+    final settings =
+        ref.read(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final nextKnown = <String>{};
     for (final payment in payments) {
@@ -171,15 +179,15 @@ class _ClientNotificationBootstrapState
       }
 
       final title = payment.isPaid
-          ? (settings.isArabic ? 'ØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø¯ÙØ¹Ø©' : 'Payment Recorded')
-          : (settings.isArabic ? 'ØªØ­Ø¯ÙŠØ« Ù…Ø¯ÙÙˆØ¹Ø§Øª' : 'Payments Updated');
+          ? (settings.isArabic ? 'تم تسجيل دفعة' : 'Payment Recorded')
+          : (settings.isArabic ? 'تحديث مدفوعات' : 'Payments Updated');
       final body = payment.isPaid
           ? (settings.isArabic
-              ? 'ØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø¯ÙØ¹Ø© Ø¬Ø¯ÙŠØ¯Ø© Ø¹Ù„Ù‰ Ø­Ø³Ø§Ø¨Ùƒ'
-              : 'A new payment was recorded')
+                ? 'تم تسجيل دفعة جديدة على حسابك'
+                : 'A new payment was recorded')
           : (settings.isArabic
-              ? 'ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ø£Ùˆ ØªØ¹Ø¯ÙŠÙ„ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø¯ÙÙˆØ¹Ø§Øª'
-              : 'Payments data was added or updated');
+                ? 'تمت إضافة أو تعديل بيانات المدفوعات'
+                : 'Payments data was added or updated');
       unawaited(
         NotificationService.showSimpleNotification(title: title, body: body),
       );
@@ -193,7 +201,8 @@ class _ClientNotificationBootstrapState
   }
 
   void _handleSettlementChanges(List<AnnualSettlement> settlements) {
-    final settings = ref.read(appSettingsProvider).value ??
+    final settings =
+        ref.read(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final nextKnown = <String>{};
     for (final settlement in settlements) {
@@ -211,9 +220,9 @@ class _ClientNotificationBootstrapState
         continue;
       }
 
-      final title = settings.isArabic ? 'ØªØ³ÙˆÙŠØ© Ø¬Ø¯ÙŠØ¯Ø©' : 'New Settlement';
+      final title = settings.isArabic ? 'تسوية جديدة' : 'New Settlement';
       final body = settings.isArabic
-          ? 'ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ø£Ùˆ ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ³ÙˆÙŠØ© Ø§Ù„Ø³Ù†ÙˆÙŠØ© Ø§Ù„Ø®Ø§ØµØ© Ø¨Ùƒ'
+          ? 'تمت إضافة أو تحديث التسوية السنوية الخاصة بك'
           : 'Your annual settlement was updated';
       unawaited(
         NotificationService.showSimpleNotification(title: title, body: body),
@@ -228,7 +237,8 @@ class _ClientNotificationBootstrapState
   }
 
   void _handleAnnouncementChanges(List<Announcement> announcements) {
-    final settings = ref.read(appSettingsProvider).value ??
+    final settings =
+        ref.read(appSettingsProvider).value ??
         const AppSettings(themeMode: ThemeMode.light, isArabic: true);
     final nextKnown = <String>{};
     for (final announcement in announcements) {
@@ -243,12 +253,13 @@ class _ClientNotificationBootstrapState
         continue;
       }
 
-      final title =
-          settings.isArabic ? 'Ø¥Ø¹Ù„Ø§Ù† Ø¬Ø¯ÙŠØ¯ Ù…Ù† Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©' : 'New Announcement';
+      final title = settings.isArabic
+          ? 'إعلان جديد من الإدارة'
+          : 'New Announcement';
       final body = announcement.title.trim().isEmpty
           ? (settings.isArabic
-              ? 'ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ø¥Ø¹Ù„Ø§Ù† Ø¬Ø¯ÙŠØ¯ ÙˆÙŠÙ…ÙƒÙ†Ùƒ Ù…Ø±Ø§Ø¬Ø¹ØªÙ‡ Ø§Ù„Ø¢Ù†'
-              : 'A new announcement was added')
+                ? 'تمت إضافة إعلان جديد ويمكنك مراجعته الآن'
+                : 'A new announcement was added')
           : announcement.title;
 
       unawaited(
@@ -275,4 +286,3 @@ class _ClientNotificationBootstrapState
     return widget.child;
   }
 }
-

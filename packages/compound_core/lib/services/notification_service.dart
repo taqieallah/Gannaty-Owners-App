@@ -154,6 +154,10 @@ class NotificationService {
         return '/requests';
       case 'payments':
         return '/payments';
+      case 'balance':
+        return '/balance';
+      case 'visitors':
+        return '/visitors';
       default:
         return isAdmin ? '/dashboard' : '/home';
     }

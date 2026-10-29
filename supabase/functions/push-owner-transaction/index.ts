@@ -134,7 +134,13 @@ async function sendToToken(
   if (resp.ok) return { ok: true, unregistered: false };
   const text = await resp.text();
   const unregistered = resp.status === 404 || text.includes("UNREGISTERED");
-  console.error("fcm send", resp.status, text.slice(0, 200));
+  // The account (not its key) tells "wrong key" from "missing role" on a 403.
+  console.error(
+    "fcm send",
+    resp.status,
+    `as ${SERVICE_ACCOUNT.client_email}`,
+    text.slice(0, 200),
+  );
   return { ok: false, unregistered };
 }
 

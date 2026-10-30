@@ -2,6 +2,7 @@
 //   (none) / owner_transaction  a payment (سداد) was recorded
 //   service_status              one of their service requests changed status
 //   visitor_arrived             a visitor pass of theirs was used at the gate
+//                               (payload.direction 'out' = the visitor left)
 //   reminders                   monthly maintenance / overdue reminders for every
 //                               owner (sent by pg_cron, at most once a month each)
 //
@@ -197,8 +198,15 @@ function statusMessageFor(
   };
 }
 
-function visitorMessageFor(visitor: string, gate: string): Msg {
+function visitorMessageFor(visitor: string, gate: string, direction: string): Msg {
   const who = visitor.trim() || "زائرك";
+  if (direction === "out") {
+    return {
+      title: "غادر زائرك",
+      body: gate.trim() ? `${who} خرج من ${gate.trim()}` : `${who} غادر الكمبوند`,
+      data: { type: "visitor_left", screen: "visitors" },
+    };
+  }
   return {
     title: "وصل زائرك",
     body: gate.trim() ? `${who} دخل من ${gate.trim()}` : `${who} دخل الكمبوند`,
@@ -365,6 +373,7 @@ Deno.serve(async (req) => {
     msg = visitorMessageFor(
       String(payload.visitor_name ?? ""),
       String(payload.gate ?? ""),
+      String(payload.direction ?? "in"),
     );
   } else {
     msg = messageFor(String(payload.amount ?? ""), String(payload.description ?? ""));
